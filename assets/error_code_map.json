@@ -1,0 +1,31 @@
+[
+  {
+    "code": "ERRORMSG",
+    "category": "generic",
+    "matches": ["ERRORMSG"],
+    "reason": "Miner reported an unspecified kernel or hardware error.",
+    "solution": "Open the miner detail page and inspect the full kernel log. Check power, fan speed, and hash board status."
+  },
+  {
+    "code": "OVER_MAX_TEMP",
+    "category": "temperature",
+    "matches": ["over max temp", "temp is too high", "overheat"],
+    "reason": "Miner temperature exceeded the safe threshold.",
+    "solution": "Improve airflow, clean dust, and verify the fan speed and ambient temperature."
+  },
+  {
+    "code": "CHAIN_BREAK",
+    "category": "hashboard",
+    "matches": ["chain break", "chain num error", "hashboard error", "chain find only"],
+    "reason": "A hash board chain communication error was detected.",
+    "solution": "Check the cable, inspect the hash board connection, and reboot the miner after hardware inspection.",
+    "inspectEarlierForCategories": ["fan"]
+  },
+  {
+    "code": "FAN_ERROR",
+    "category": "fan",
+    "matches": ["fan err", "fan error", "fan lost", "fan speed too low", "fan abnormal", "fan fail"],
+    "reason": "A fan failure or abnormal fan speed was detected.",
+    "solution": "Check fan wiring, replace the failed fan, and verify all fans can reach normal speed."
+  }
+]

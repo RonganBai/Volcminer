@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:volcminer/domain/entities/credential.dart';
 import 'package:volcminer/domain/entities/pool_slot_config.dart';
 import 'package:volcminer/presentation/controllers/settings_controller.dart';
+import 'package:volcminer/presentation/localization/app_localizer.dart';
 import 'package:volcminer/presentation/providers/app_providers.dart';
 
 class PoolConfigPage extends ConsumerStatefulWidget {
@@ -54,6 +55,7 @@ class _PoolConfigPageState extends ConsumerState<PoolConfigPage> {
   @override
   Widget build(BuildContext context) {
     final settingsState = ref.watch(settingsControllerProvider);
+    final l10n = AppLocalizer(ref);
     if (!_initialized) {
       _syncControllersFromSettings(settingsState);
       _initialized = true;
@@ -66,7 +68,9 @@ class _PoolConfigPageState extends ConsumerState<PoolConfigPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.isApplyMode ? 'Apply Pool Config' : 'Pool Config'),
+        title: Text(
+          widget.isApplyMode ? l10n.t('pool.applyTitle') : l10n.t('pool.title'),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -80,15 +84,21 @@ class _PoolConfigPageState extends ConsumerState<PoolConfigPage> {
                   children: [
                     Text(
                       widget.targetIps.length == 1
-                          ? 'Target: ${widget.targetIps.first}'
-                          : 'Targets: ${widget.targetIps.length} miners',
+                          ? l10n.t(
+                              'pool.targetSingle',
+                              params: {'ip': widget.targetIps.first},
+                            )
+                          : l10n.t(
+                              'pool.targetMulti',
+                              params: {'count': widget.targetIps.length.toString()},
+                            ),
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
                     Text(
                       widget.targetIps.length == 1
-                          ? 'The pool fields below are loaded from the current miner first.'
-                          : 'Edit the pool slots below, then apply them to the selected miners.',
+                          ? l10n.t('pool.singleHint')
+                          : l10n.t('pool.multiHint'),
                     ),
                     if (_loadingCurrentConfig) ...[
                       const SizedBox(height: 12),
@@ -100,16 +110,16 @@ class _PoolConfigPageState extends ConsumerState<PoolConfigPage> {
             ),
             const SizedBox(height: 12),
           ],
-          const Text(
-            'Pool Slots',
-            style: TextStyle(fontWeight: FontWeight.w600),
+          Text(
+            l10n.t('pool.slots'),
+            style: const TextStyle(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
-          for (final slotNo in [1, 2, 3]) _buildPoolSlotCard(context, slotNo),
+          for (final slotNo in [1, 2, 3]) _buildPoolSlotCard(context, slotNo, l10n),
           if (widget.isApplyMode) ...[
             const SizedBox(height: 16),
             FilledButton.icon(
-              onPressed: _applyBusy ? null : () => _applyToTargets(context),
+              onPressed: _applyBusy ? null : () => _applyToTargets(context, l10n),
               icon: _applyBusy
                   ? const SizedBox(
                       width: 16,
@@ -119,10 +129,10 @@ class _PoolConfigPageState extends ConsumerState<PoolConfigPage> {
                   : const Icon(Icons.cloud_upload_outlined),
               label: Text(
                 _applyBusy
-                    ? 'Applying...'
+                    ? l10n.t('pool.applying')
                     : widget.targetIps.length == 1
-                    ? 'Apply to Miner'
-                    : 'Apply to Selected Miners',
+                        ? l10n.t('pool.applySingle')
+                        : l10n.t('pool.applyMulti'),
               ),
             ),
           ],
@@ -131,7 +141,11 @@ class _PoolConfigPageState extends ConsumerState<PoolConfigPage> {
     );
   }
 
-  Widget _buildPoolSlotCard(BuildContext context, int slotNo) {
+  Widget _buildPoolSlotCard(
+    BuildContext context,
+    int slotNo,
+    AppLocalizer l10n,
+  ) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -139,24 +153,24 @@ class _PoolConfigPageState extends ConsumerState<PoolConfigPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Pool Slot $slotNo',
+              l10n.t('pool.slotTitle', params: {'slot': '$slotNo'}),
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const SizedBox(height: 8),
             TextField(
               controller: _urlControllers[slotNo],
-              decoration: const InputDecoration(
-                labelText: 'Pool URL',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.t('pool.url'),
+                border: const OutlineInputBorder(),
               ),
               onChanged: (_) => _persistSlot(slotNo),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: _workerControllers[slotNo],
-              decoration: const InputDecoration(
-                labelText: 'Worker Code',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.t('pool.workerCode'),
+                border: const OutlineInputBorder(),
               ),
               onChanged: (_) => _persistSlot(slotNo),
             ),
@@ -164,9 +178,9 @@ class _PoolConfigPageState extends ConsumerState<PoolConfigPage> {
             TextField(
               controller: _passwordControllers[slotNo],
               obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Password',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.t('pool.password'),
+                border: const OutlineInputBorder(),
               ),
               onChanged: (_) => _persistSlot(slotNo),
             ),
@@ -211,13 +225,13 @@ class _PoolConfigPageState extends ConsumerState<PoolConfigPage> {
     setState(() => _loadingCurrentConfig = false);
   }
 
-  Future<void> _applyToTargets(BuildContext context) async {
+  Future<void> _applyToTargets(BuildContext context, AppLocalizer l10n) async {
     final messenger = ScaffoldMessenger.of(context);
     final poolSlots = _currentPoolSlots();
     final slotPasswords = _currentSlotPasswords();
     if (!_hasConfiguredPool(poolSlots)) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('Please fill at least one pool slot first.')),
+        SnackBar(content: Text(l10n.t('pool.fillOneSlot'))),
       );
       return;
     }
@@ -227,20 +241,26 @@ class _PoolConfigPageState extends ConsumerState<PoolConfigPage> {
       builder: (dialogContext) {
         final count = widget.targetIps.length;
         return AlertDialog(
-          title: const Text('Confirm Pool Switch'),
+          title: Text(l10n.t('pool.confirmSwitch')),
           content: Text(
             count == 1
-                ? 'Apply the current pool configuration to ${widget.targetIps.first}?'
-                : 'Apply the current pool configuration to $count selected miners?',
+                ? l10n.t(
+                    'pool.confirmSwitchSingle',
+                    params: {'ip': widget.targetIps.first},
+                  )
+                : l10n.t(
+                    'pool.confirmSwitchMulti',
+                    params: {'count': '$count'},
+                  ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
+              child: Text(l10n.t('common.cancel')),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Confirm'),
+              child: Text(l10n.t('common.confirm')),
             ),
           ],
         );

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:volcminer/domain/entities/scan_view.dart';
 import 'package:volcminer/domain/usecases/manage_scan_view_usecase.dart';
+import 'package:volcminer/presentation/localization/app_strings.dart';
 
 class ScanViewState {
   const ScanViewState({
@@ -19,12 +20,12 @@ class ScanViewState {
   final String? error;
 
   factory ScanViewState.initial() => const ScanViewState(
-    views: [],
-    selectedIds: {},
-    mode: SelectionMode.multi,
-    loading: false,
-    error: null,
-  );
+        views: [],
+        selectedIds: {},
+        mode: SelectionMode.multi,
+        loading: false,
+        error: null,
+      );
 
   ScanViewState copyWith({
     List<ScanView>? views,
@@ -58,7 +59,13 @@ class ScanViewController extends StateNotifier<ScanViewState> {
       final views = await _useCase.getAll();
       state = state.copyWith(views: views, loading: false);
     } catch (e) {
-      state = state.copyWith(loading: false, error: '读取组合视图失败: $e');
+      state = state.copyWith(
+        loading: false,
+        error: AppStrings.english(
+          'controller.scanView.loadFailed',
+          params: {'error': '$e'},
+        ),
+      );
     }
   }
 
@@ -69,13 +76,28 @@ class ScanViewController extends StateNotifier<ScanViewState> {
     required String endIp,
     required List<String> tags,
   }) async {
+    final normalizedCidr = cidr.trim();
+    final normalizedStart = startIp.trim();
+    final normalizedEnd = endIp.trim();
+    final exists = state.views.any(
+      (view) =>
+          view.cidr.trim() == normalizedCidr &&
+          view.startIp.trim() == normalizedStart &&
+          view.endIp.trim() == normalizedEnd,
+    );
+    if (exists) {
+      state = state.copyWith(
+        error: AppStrings.english('controller.scanView.duplicate'),
+      );
+      return;
+    }
     final now = DateTime.now();
     final view = ScanView(
       id: _uuid.v4(),
       name: name.trim(),
-      cidr: cidr.trim(),
-      startIp: startIp.trim(),
-      endIp: endIp.trim(),
+      cidr: normalizedCidr,
+      startIp: normalizedStart,
+      endIp: normalizedEnd,
       tags: tags,
       createdAt: now,
       updatedAt: now,
@@ -121,5 +143,14 @@ class ScanViewController extends StateNotifier<ScanViewState> {
       state.mode,
     );
     state = state.copyWith(selectedIds: normalized.toSet());
+  }
+
+  Future<void> selectAll() async {
+    final ids = state.views.map((view) => view.id).toList(growable: false);
+    final normalized = await _useCase.setSelected(ids, SelectionMode.multi);
+    state = state.copyWith(
+      mode: SelectionMode.multi,
+      selectedIds: normalized.toSet(),
+    );
   }
 }

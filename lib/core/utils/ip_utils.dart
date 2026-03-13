@@ -164,4 +164,43 @@ class IpUtils {
     }
     return cidrSet;
   }
+
+  static String formatIpBlockLabel(String value) {
+    final text = value.trim();
+    if (text.isEmpty) {
+      return '';
+    }
+    final normalized = normalizeCidrInput(text);
+    if (normalized != null && normalized.endsWith('.0/24')) {
+      return normalized.replaceFirst('.0/24', '');
+    }
+    if (text.endsWith('.0/24')) {
+      return text.replaceFirst('.0/24', '');
+    }
+    return text;
+  }
+
+  static int compareIpBlocks(String left, String right) {
+    final a = _blockParts(left);
+    final b = _blockParts(right);
+    final second = a[1].compareTo(b[1]);
+    if (second != 0) {
+      return second;
+    }
+    final third = a[2].compareTo(b[2]);
+    if (third != 0) {
+      return third;
+    }
+    return a[3].compareTo(b[3]);
+  }
+
+  static List<int> _blockParts(String value) {
+    final formatted = formatIpBlockLabel(value);
+    final parts = formatted.split('.');
+    final padded = <int>[0, 0, 0, 0];
+    for (var i = 0; i < parts.length && i < 4; i++) {
+      padded[i] = int.tryParse(parts[i]) ?? 0;
+    }
+    return padded;
+  }
 }

@@ -12,6 +12,14 @@ class ScanSegmentRecord {
   final List<TrackedMiner> miners;
 
   int get onlineCount => miners.where((miner) => miner.isOnline).length;
+  int get unresponsiveCount =>
+      miners.where((miner) => miner.state == TrackedMinerState.unresponsive).length;
+  int get offlineCount =>
+      miners.where((miner) => miner.state == TrackedMinerState.offline).length;
+  int get retiredCount =>
+      miners.where((miner) => miner.state == TrackedMinerState.retired).length;
+  int get issueCount => miners.where((miner) => miner.hasIssue).length;
+  bool get hasIssues => issueCount > 0;
 
   ScanSegmentRecord copyWith({
     String? scope,

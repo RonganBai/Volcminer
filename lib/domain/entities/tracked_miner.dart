@@ -1,4 +1,6 @@
+import 'package:volcminer/core/utils/hashrate_utils.dart';
 import 'package:volcminer/domain/entities/miner_runtime.dart';
+import 'package:volcminer/domain/entities/miner_issue_diagnosis.dart';
 import 'package:volcminer/domain/entities/miner_scan_item.dart';
 
 class TrackedMinerState {
@@ -14,47 +16,79 @@ class TrackedMiner {
     required this.lastItem,
     required this.lastSeenAt,
     required this.missedScans,
+    this.clearRefineAttempted = false,
+    this.offlineSince,
+    this.offlineScanMisses = 0,
+    this.retiredAt,
+    this.diagnosis,
   });
 
   final String ip;
   final MinerScanItem lastItem;
   final DateTime lastSeenAt;
   final int missedScans;
+  final bool clearRefineAttempted;
+  final DateTime? offlineSince;
+  final int offlineScanMisses;
+  final DateTime? retiredAt;
+  final MinerIssueDiagnosis? diagnosis;
 
   String get state {
+    if (retiredAt != null) {
+      return TrackedMinerState.retired;
+    }
     return switch (missedScans) {
       0 => TrackedMinerState.online,
       1 => TrackedMinerState.unresponsive,
-      2 => TrackedMinerState.offline,
-      _ => TrackedMinerState.retired,
+      _ => TrackedMinerState.offline,
     };
   }
 
   String get stateLabel {
     return switch (state) {
-      TrackedMinerState.online => '在线',
-      TrackedMinerState.unresponsive => '未响应',
-      TrackedMinerState.offline => '离线',
-      _ => '下架',
+      TrackedMinerState.online => 'Online',
+      TrackedMinerState.unresponsive => 'Unresponsive',
+      TrackedMinerState.offline => 'Offline',
+      _ => 'Retired',
     };
   }
 
   bool get isOnline => state == TrackedMinerState.online;
   bool get canDelete => state == TrackedMinerState.retired;
+  bool get hasIssue => diagnosis != null;
 
   MinerRuntime get runtime => lastItem.runtime;
+
+  double get effectiveHashrate =>
+      HashrateUtils.effectiveGh(runtime.ghs5s, runtime.ghsav);
+
+  bool get isZeroHashrate => state == TrackedMinerState.online && effectiveHashrate <= 0;
 
   TrackedMiner copyWith({
     String? ip,
     MinerScanItem? lastItem,
     DateTime? lastSeenAt,
     int? missedScans,
+    bool? clearRefineAttempted,
+    DateTime? offlineSince,
+    bool clearOfflineSince = false,
+    int? offlineScanMisses,
+    DateTime? retiredAt,
+    bool clearRetiredAt = false,
+    MinerIssueDiagnosis? diagnosis,
+    bool clearDiagnosis = false,
   }) {
     return TrackedMiner(
       ip: ip ?? this.ip,
       lastItem: lastItem ?? this.lastItem,
       lastSeenAt: lastSeenAt ?? this.lastSeenAt,
       missedScans: missedScans ?? this.missedScans,
+      clearRefineAttempted:
+          clearRefineAttempted ?? this.clearRefineAttempted,
+      offlineSince: clearOfflineSince ? null : (offlineSince ?? this.offlineSince),
+      offlineScanMisses: offlineScanMisses ?? this.offlineScanMisses,
+      retiredAt: clearRetiredAt ? null : (retiredAt ?? this.retiredAt),
+      diagnosis: clearDiagnosis ? null : (diagnosis ?? this.diagnosis),
     );
   }
 }

@@ -3,24 +3,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:volcminer/domain/entities/credential.dart';
 import 'package:volcminer/domain/entities/miner_runtime.dart';
-import 'package:volcminer/domain/entities/miner_scan_item.dart';
+import 'package:volcminer/domain/entities/tracked_miner.dart';
+import 'package:volcminer/presentation/localization/app_localizer.dart';
 import 'package:volcminer/presentation/pages/pool_config_page.dart';
 import 'package:volcminer/presentation/providers/app_providers.dart';
 
 class MinerDetailPage extends ConsumerStatefulWidget {
-  const MinerDetailPage({super.key, required this.item});
+  const MinerDetailPage({super.key, required this.miner});
 
-  final MinerScanItem item;
+  final TrackedMiner miner;
 
   @override
   ConsumerState<MinerDetailPage> createState() => _MinerDetailPageState();
 }
 
 class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
-  bool _ledOn = false;
   bool _ledBusy = false;
   bool _rebootBusy = false;
   bool _clearBusy = false;
+  bool _refreshBusy = false;
   bool _logExpanded = false;
   bool _logLoading = false;
   String? _kernelLog;
@@ -37,15 +38,55 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final runtime = widget.item.runtime;
+    final currentMiner = ref.watch(
+      scanControllerProvider.select((state) {
+        for (final segment in state.segments) {
+          for (final miner in segment.miners) {
+            if (miner.ip == widget.miner.ip) {
+              return miner;
+            }
+          }
+        }
+        return widget.miner;
+      }),
+    );
+    final runtime = currentMiner.runtime;
     final settingsState = ref.watch(settingsControllerProvider);
+    final ledOn = ref.watch(
+      scanControllerProvider.select(
+        (state) => state.ledActiveIps.contains(widget.miner.ip),
+      ),
+    );
     final credential = MinerCredential(
       username: settingsState.settings.minerUsername,
       password: settingsState.minerAuthPassword,
     );
+    final l10n = AppLocalizer(ref);
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.item.worker.ip)),
+      appBar: AppBar(
+        title: Text(currentMiner.ip),
+        actions: [
+          IconButton(
+            onPressed: _refreshBusy
+                ? null
+                : () => _refreshMiner(
+                    context,
+                    credential,
+                    settingsState.settings.scanConcurrency,
+                    l10n,
+                  ),
+            tooltip: l10n.t('miner.refresh'),
+            icon: _refreshBusy
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -56,25 +97,100 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Status: ${_statusLabel(runtime.onlineStatus)}',
+                    l10n.t(
+                      'miner.status',
+                      params: {'status': _statusLabel(runtime.onlineStatus, l10n)},
+                    ),
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
-                  Text('Hashrate 5s: ${runtime.ghs5s}'),
-                  Text('Hashrate avg: ${runtime.ghsav}'),
-                  Text('Ambient temp: ${runtime.ambientTemp}'),
-                  Text('Power: ${runtime.power}'),
+                  Text(l10n.t('miner.hashrate5s', params: {'value': runtime.ghs5s})),
+                  Text(l10n.t('miner.hashrateAvg', params: {'value': runtime.ghsav})),
                   Text(
-                    'Fans: ${runtime.fan1}, ${runtime.fan2}, ${runtime.fan3}, ${runtime.fan4}',
+                    l10n.t(
+                      'miner.ambientTemp',
+                      params: {'value': runtime.ambientTemp},
+                    ),
                   ),
-                  Text('Running mode: ${runtime.runningMode}'),
+                  Text(l10n.t('miner.power', params: {'value': runtime.power})),
                   Text(
-                    'Updated: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(runtime.fetchedAt)}',
+                    l10n.t(
+                      'miner.fans',
+                      params: {
+                        'value':
+                            '${runtime.fan1}, ${runtime.fan2}, ${runtime.fan3}, ${runtime.fan4}',
+                      },
+                    ),
+                  ),
+                  Text(
+                    l10n.t(
+                      'miner.runningMode',
+                      params: {'value': runtime.runningMode},
+                    ),
+                  ),
+                  Text(
+                    l10n.t(
+                      'miner.updated',
+                      params: {
+                        'time':
+                            DateFormat('yyyy-MM-dd HH:mm:ss').format(runtime.fetchedAt),
+                      },
+                    ),
                   ),
                 ],
               ),
             ),
           ),
+          if (currentMiner.diagnosis != null) ...[
+            const SizedBox(height: 12),
+            Card(
+              color: Colors.orange.withValues(alpha: 0.08),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.t('miner.issueCardTitle'),
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      l10n.t(
+                        'miner.issueCode',
+                        params: {'code': currentMiner.diagnosis!.code},
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      l10n.t(
+                        'miner.issueReason',
+                        params: {'reason': currentMiner.diagnosis!.reason},
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      l10n.t(
+                        'miner.issueSolution',
+                        params: {'solution': currentMiner.diagnosis!.solution},
+                      ),
+                    ),
+                    if (currentMiner.diagnosis!.secondaryReason != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        l10n.t(
+                          'miner.issueSecondary',
+                          params: {
+                            'reason': currentMiner.diagnosis!.secondaryReason!,
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           Card(
             child: Padding(
@@ -82,15 +198,15 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
               child: Column(
                 children: [
                   SwitchListTile(
-                    value: _ledOn,
+                    value: ledOn,
                     onChanged: _ledBusy
                         ? null
                         : (value) => _toggleLed(context, credential, value),
-                    title: const Text('Indicator switch'),
+                    title: Text(l10n.t('miner.indicatorSwitch')),
                     subtitle: Text(
                       _ledBusy
-                          ? 'Sending command...'
-                          : 'Uses diagnostics backend to control the miner LED.',
+                          ? l10n.t('miner.sendingCommand')
+                          : l10n.t('miner.indicatorHint'),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -102,28 +218,27 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
                               ? null
                               : () => _confirmAndRun(
                                   context: context,
-                                  title: 'Clear Refine',
-                                  message:
-                                      'Clear refine for ${widget.item.worker.ip}?',
+                                  title: l10n.t('miner.clearRefine'),
+                                  message: l10n.t(
+                                    'miner.clearRefineMessage',
+                                    params: {'ip': widget.miner.ip},
+                                  ),
+                                  cancelLabel: l10n.t('common.cancel'),
+                                  confirmLabel: l10n.t('common.confirm'),
                                   busySetter: (value) =>
                                       setState(() => _clearBusy = value),
                                   action: () => ref
                                       .read(scanControllerProvider.notifier)
-                                      .clearRefineForIps(
-                                        [widget.item.worker.ip],
-                                        credential,
-                                      ),
+                                      .clearRefineForIps([widget.miner.ip], credential),
                                 ),
                           icon: _clearBusy
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
+                                  child: CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : const Icon(Icons.cleaning_services_outlined),
-                          label: const Text('Clear Refine'),
+                          label: Text(l10n.t('miner.clearRefine')),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -133,28 +248,27 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
                               ? null
                               : () => _confirmAndRun(
                                   context: context,
-                                  title: 'Reboot Miner',
-                                  message:
-                                      'Reboot ${widget.item.worker.ip} now?',
+                                  title: l10n.t('miner.rebootMiner'),
+                                  message: l10n.t(
+                                    'miner.rebootMinerMessage',
+                                    params: {'ip': widget.miner.ip},
+                                  ),
+                                  cancelLabel: l10n.t('common.cancel'),
+                                  confirmLabel: l10n.t('common.confirm'),
                                   busySetter: (value) =>
                                       setState(() => _rebootBusy = value),
                                   action: () => ref
                                       .read(scanControllerProvider.notifier)
-                                      .rebootForIps(
-                                        [widget.item.worker.ip],
-                                        credential,
-                                      ),
+                                      .rebootForIps([widget.miner.ip], credential),
                                 ),
                           icon: _rebootBusy
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
+                                  child: CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : const Icon(Icons.restart_alt),
-                          label: const Text('Reboot'),
+                          label: Text(l10n.t('miner.rebootMiner')),
                         ),
                       ),
                     ],
@@ -166,14 +280,12 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (_) => PoolConfigPage(
-                              targetIps: [widget.item.worker.ip],
-                            ),
+                            builder: (_) => PoolConfigPage(targetIps: [widget.miner.ip]),
                           ),
                         );
                       },
                       icon: const Icon(Icons.swap_horiz_outlined),
-                      label: const Text('Pool Config'),
+                      label: Text(l10n.t('miner.poolConfig')),
                     ),
                   ),
                 ],
@@ -183,27 +295,27 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
           const SizedBox(height: 12),
           Card(
             child: ExpansionTile(
-              title: const Text('工作日志'),
+              title: Text(l10n.t('miner.kernelLog')),
               subtitle: Text(
                 _logLoading
-                    ? '正在读取完整 kernel log...'
+                    ? l10n.t('miner.kernelLogLoading')
                     : _kernelLogError != null
-                    ? '读取失败'
-                    : _kernelLog == null
-                    ? '展开后单独读取完整日志'
-                    : '已加载完整日志，可拖动滚动条查看',
+                        ? l10n.t('miner.kernelLogFailed')
+                        : _kernelLog == null
+                            ? l10n.t('miner.kernelLogCollapsed')
+                            : l10n.t('miner.kernelLogReady'),
               ),
               initiallyExpanded: _logExpanded,
               onExpansionChanged: (expanded) {
                 setState(() => _logExpanded = expanded);
                 if (expanded) {
-                  _loadKernelLog(credential);
+                  _loadKernelLog(credential, l10n);
                 }
               },
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: _buildLogContent(),
+                  child: _buildLogContent(l10n),
                 ),
               ],
             ),
@@ -213,7 +325,7 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
     );
   }
 
-  Widget _buildLogContent() {
+  Widget _buildLogContent(AppLocalizer l10n) {
     if (_logLoading) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 24),
@@ -221,12 +333,9 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
       );
     }
     if (_kernelLogError != null) {
-      return Text(
-        _kernelLogError!,
-        style: const TextStyle(color: Colors.red),
-      );
+      return Text(_kernelLogError!, style: const TextStyle(color: Colors.red));
     }
-    final text = _kernelLog ?? '展开后单独查找完整工作日志。';
+    final text = _kernelLog ?? l10n.t('miner.kernelLogPlaceholder');
     final lines = text.split('\n');
     return Container(
       height: 360,
@@ -307,9 +416,7 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
     }
 
     return TextSpan(
-      style: const TextStyle(
-        backgroundColor: Color(0xFFFFF4F4),
-      ),
+      style: const TextStyle(backgroundColor: Color(0xFFFFF4F4)),
       children: children,
     );
   }
@@ -323,23 +430,65 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
     setState(() => _ledBusy = true);
     final result = await ref
         .read(scanControllerProvider.notifier)
-        .toggleLedForIp(widget.item.worker.ip, value, credential);
+        .toggleLedForIp(widget.miner.ip, value, credential);
     if (!mounted) {
       return;
     }
-    setState(() {
-      _ledBusy = false;
-      if (result.success) {
-        _ledOn = value;
-      }
-    });
+    setState(() => _ledBusy = false);
     messenger.showSnackBar(SnackBar(content: Text(result.message)));
+  }
+
+  Future<void> _refreshMiner(
+    BuildContext context,
+    MinerCredential credential,
+    int concurrency,
+    AppLocalizer l10n,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _refreshBusy = true);
+    messenger.showSnackBar(
+      SnackBar(content: Text(l10n.t('miner.refreshing'))),
+    );
+    try {
+      await ref.read(scanControllerProvider.notifier).refreshMinerIp(
+            ip: widget.miner.ip,
+            minerCredential: credential,
+            concurrency: concurrency,
+          );
+      if (!mounted) {
+        return;
+      }
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.t('miner.refreshDone', params: {'ip': widget.miner.ip}),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.t('miner.refreshFailed', params: {'error': '$e'}),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _refreshBusy = false);
+      }
+    }
   }
 
   Future<void> _confirmAndRun({
     required BuildContext context,
     required String title,
     required String message,
+    required String cancelLabel,
+    required String confirmLabel,
     required void Function(bool value) busySetter,
     required Future<dynamic> Function() action,
   }) async {
@@ -353,11 +502,11 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
+              child: Text(cancelLabel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Confirm'),
+              child: Text(confirmLabel),
             ),
           ],
         );
@@ -375,7 +524,10 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
     messenger.showSnackBar(SnackBar(content: Text(result.message)));
   }
 
-  Future<void> _loadKernelLog(MinerCredential credential) async {
+  Future<void> _loadKernelLog(
+    MinerCredential credential,
+    AppLocalizer l10n,
+  ) async {
     if (_logLoading || _kernelLog != null) {
       return;
     }
@@ -386,7 +538,7 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
     try {
       final log = await ref
           .read(fetchMinerDetailUseCaseProvider)
-          .getKernelLog(widget.item.worker.ip, credential);
+          .getKernelLog(widget.miner.ip, credential);
       if (!mounted) {
         return;
       }
@@ -400,15 +552,16 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
       }
       setState(() {
         _logLoading = false;
-        _kernelLogError = '工作日志读取失败: $e';
+        _kernelLogError =
+            l10n.t('miner.kernelLogError', params: {'error': '$e'});
       });
     }
   }
 
-  String _statusLabel(String value) {
+  String _statusLabel(String value, AppLocalizer l10n) {
     return switch (value) {
-      MinerRuntimeStatus.online => 'Online',
-      MinerRuntimeStatus.offline => 'Offline',
+      MinerRuntimeStatus.online => l10n.t('status.online'),
+      MinerRuntimeStatus.offline => l10n.t('status.offline'),
       _ => value,
     };
   }

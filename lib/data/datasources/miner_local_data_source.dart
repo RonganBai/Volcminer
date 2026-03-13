@@ -12,8 +12,8 @@ import 'package:volcminer/domain/entities/miner_runtime.dart';
 import 'package:volcminer/domain/entities/pool_slot_config.dart';
 
 class MinerLocalDataSource {
-  static const Duration _runtimeTimeout = Duration(seconds: 6);
-  static const Duration _logTimeout = Duration(seconds: 6);
+  static const Duration _runtimeTimeout = Duration(seconds: 5);
+  static const Duration _logTimeout = Duration(seconds: 5);
 
   Future<MinerRuntime> fetchRuntime(
     String ip,

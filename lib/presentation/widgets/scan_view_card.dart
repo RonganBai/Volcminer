@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:volcminer/core/utils/ip_utils.dart';
 import 'package:volcminer/domain/entities/scan_view.dart';
+import 'package:volcminer/presentation/localization/app_localizer.dart';
 
-class ScanViewCard extends StatelessWidget {
+class ScanViewCard extends ConsumerWidget {
   const ScanViewCard({
     super.key,
     required this.view,
@@ -16,7 +19,11 @@ class ScanViewCard extends StatelessWidget {
   final VoidCallback onDelete;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final displayBlock = IpUtils.formatIpBlockLabel(
+      view.cidr.isNotEmpty ? view.cidr : view.startIp,
+    );
+    final l10n = AppLocalizer(ref);
     return Card(
       color: selected ? Colors.blue.shade50 : null,
       child: InkWell(
@@ -30,7 +37,7 @@ class ScanViewCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      view.cidr.isNotEmpty ? view.cidr : view.startIp,
+                      displayBlock,
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -41,10 +48,17 @@ class ScanViewCard extends StatelessWidget {
                   ),
                 ],
               ),
-              if (view.cidr.isNotEmpty) Text('IP Block: ${view.cidr}'),
+              if (view.cidr.isNotEmpty)
+                Text(l10n.t('view.ipBlock', params: {'scope': displayBlock})),
               if (view.startIp.isNotEmpty || view.endIp.isNotEmpty)
                 Text(
-                  'Range: ${view.startIp.isEmpty ? '--' : view.startIp} - ${view.endIp.isEmpty ? '--' : view.endIp}',
+                  l10n.t(
+                    'view.range',
+                    params: {
+                      'start': view.startIp.isEmpty ? '--' : view.startIp,
+                      'end': view.endIp.isEmpty ? '--' : view.endIp,
+                    },
+                  ),
                 ),
             ],
           ),

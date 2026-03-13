@@ -1,3 +1,4 @@
+import 'package:volcminer/core/utils/hashrate_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -5,6 +6,7 @@ import 'package:volcminer/core/utils/ip_utils.dart';
 import 'package:volcminer/domain/entities/credential.dart';
 import 'package:volcminer/domain/entities/scan_segment_record.dart';
 import 'package:volcminer/domain/entities/tracked_miner.dart';
+import 'package:volcminer/presentation/localization/app_localizer.dart';
 import 'package:volcminer/presentation/pages/miner_detail_page.dart';
 import 'package:volcminer/presentation/pages/pool_config_page.dart';
 import 'package:volcminer/presentation/providers/app_providers.dart';
@@ -41,14 +43,21 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
       ),
     );
     final miners = _visibleMiners(currentSegment.miners);
+    final ledActiveIps = ref.watch(
+      scanControllerProvider.select((state) => state.ledActiveIps),
+    );
     final settingsState = ref.watch(settingsControllerProvider);
     final credential = MinerCredential(
       username: settingsState.settings.minerUsername,
       password: settingsState.minerAuthPassword,
     );
+    final displayScope = IpUtils.formatIpBlockLabel(currentSegment.scope);
+    final l10n = AppLocalizer(ref);
 
     return Scaffold(
-      appBar: AppBar(title: Text('${currentSegment.scope} 搜索详情')),
+      appBar: AppBar(
+        title: Text(l10n.t('segment.title', params: {'scope': displayScope})),
+      ),
       body: Column(
         children: [
           Padding(
@@ -57,31 +66,61 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '上次扫描: ${DateFormat('yyyy-MM-dd HH:mm:ss').format(currentSegment.updatedAt)}',
+                  l10n.t(
+                    'segment.lastScan',
+                    params: {
+                      'time':
+                          DateFormat('yyyy-MM-dd HH:mm:ss').format(currentSegment.updatedAt),
+                    },
+                  ),
                 ),
-                Text('IP 段: ${currentSegment.scope}'),
-                Text('在线数量: ${currentSegment.onlineCount}'),
+                Text(l10n.t('results.ipBlock', params: {'scope': displayScope})),
+                Text(
+                  l10n.t(
+                    'segment.onlineCount',
+                    params: {'count': currentSegment.onlineCount.toString()},
+                  ),
+                ),
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _filterChip('全部', _SegmentFilter.all),
-                    _filterChip('在线', _SegmentFilter.online),
-                    _filterChip('未响应', _SegmentFilter.unresponsive),
-                    _filterChip('离线', _SegmentFilter.offline),
-                    _filterChip('下架', _SegmentFilter.retired),
+                    _filterChip(l10n.t('segment.filter.all'), _SegmentFilter.all),
+                    _filterChip(
+                      l10n.t('segment.filter.online'),
+                      _SegmentFilter.online,
+                    ),
+                    _filterChip(
+                      l10n.t('segment.filter.unresponsive'),
+                      _SegmentFilter.unresponsive,
+                    ),
+                    _filterChip(
+                      l10n.t('segment.filter.offline'),
+                      _SegmentFilter.offline,
+                    ),
+                    _filterChip(
+                      l10n.t('segment.filter.retired'),
+                      _SegmentFilter.retired,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 if (_selectionMode) ...[
                   Row(
                     children: [
-                      Text('已选择: ${_selectedVisibleCount(miners)}'),
+                      Text(
+                        l10n.t(
+                          'segment.selected',
+                          params: {
+                            'count': _selectedVisibleCount(miners).toString(),
+                          },
+                        ),
+                      ),
                       const Spacer(),
                       TextButton(
                         onPressed: miners.isEmpty ? null : () => _toggleSelectAll(miners),
-                        child: const Text('全选'),
+                        child: Text(l10n.t('segment.selectAll')),
                       ),
                       TextButton(
                         onPressed: () {
@@ -90,7 +129,7 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
                             _selectionMode = false;
                           });
                         },
-                        child: const Text('取消选择'),
+                        child: Text(l10n.t('segment.cancelSelect')),
                       ),
                     ],
                   ),
@@ -101,17 +140,19 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
                         child: FilledButton.icon(
                           onPressed: _batchBusy || _selectedIps.isEmpty
                               ? null
-                              : () => _confirmBatchLedOn(context, credential),
+                              : () => _confirmBatchLedOn(context, credential, l10n),
                           icon: _batchBusy
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
+                                  child: CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : const Icon(Icons.lightbulb_outline),
-                          label: Text(_batchBusy ? '批量开灯中...' : '批量开灯'),
+                          label: Text(
+                            _batchBusy
+                                ? l10n.t('segment.batchLedOnBusy')
+                                : l10n.t('segment.batchLedOn'),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -119,17 +160,19 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
                         child: FilledButton.tonalIcon(
                           onPressed: _batchOffBusy || _selectedIps.isEmpty
                               ? null
-                              : () => _confirmBatchLedOff(context, credential),
+                              : () => _confirmBatchLedOff(context, credential, l10n),
                           icon: _batchOffBusy
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
+                                  child: CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : const Icon(Icons.lightbulb_circle_outlined),
-                          label: Text(_batchOffBusy ? '批量关灯中...' : '批量关灯'),
+                          label: Text(
+                            _batchOffBusy
+                                ? l10n.t('segment.batchLedOffBusy')
+                                : l10n.t('segment.batchLedOff'),
+                          ),
                         ),
                       ),
                     ],
@@ -145,14 +188,18 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
                                   Navigator.of(context).push(
                                     MaterialPageRoute<void>(
                                       builder: (_) => PoolConfigPage(
-                                        targetIps:
-                                            _selectedIps.toList(growable: false),
+                                        targetIps: _selectedIps.toList(growable: false),
                                       ),
                                     ),
                                   );
                                 },
                           icon: const Icon(Icons.swap_horiz_outlined),
-                          label: Text('矿池配置 (${_selectedIps.length})'),
+                          label: Text(
+                            l10n.t(
+                              'segment.poolConfig',
+                              params: {'count': _selectedIps.length.toString()},
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -162,9 +209,13 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
                               ? null
                               : () => _confirmBatchAction(
                                   context: context,
-                                  title: '确认批量清除自适应',
-                                  message:
-                                      '本次将清除 ${_selectedIps.length} 台矿机的自适应，是否继续？',
+                                  title: l10n.t('segment.confirmClearTitle'),
+                                  message: l10n.t(
+                                    'segment.confirmClearMessage',
+                                    params: {'count': _selectedIps.length.toString()},
+                                  ),
+                                  cancelLabel: l10n.t('common.cancel'),
+                                  confirmLabel: l10n.t('common.confirm'),
                                   busySetter: (value) =>
                                       setState(() => _batchClearBusy = value),
                                   action: () => ref
@@ -178,13 +229,13 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
+                                  child: CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : const Icon(Icons.cleaning_services_outlined),
                           label: Text(
-                            _batchClearBusy ? '批量清除中...' : '批量清除自适应',
+                            _batchClearBusy
+                                ? l10n.t('segment.batchClearBusy')
+                                : l10n.t('segment.batchClear'),
                           ),
                         ),
                       ),
@@ -198,8 +249,13 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
                           ? null
                           : () => _confirmBatchAction(
                               context: context,
-                              title: '确认批量重启矿机',
-                              message: '本次将重启 ${_selectedIps.length} 台矿机，是否继续？',
+                              title: l10n.t('segment.confirmRebootTitle'),
+                              message: l10n.t(
+                                'segment.confirmRebootMessage',
+                                params: {'count': _selectedIps.length.toString()},
+                              ),
+                              cancelLabel: l10n.t('common.cancel'),
+                              confirmLabel: l10n.t('common.confirm'),
                               busySetter: (value) =>
                                   setState(() => _batchRebootBusy = value),
                               action: () => ref
@@ -216,13 +272,17 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.restart_alt),
-                      label: Text(_batchRebootBusy ? '批量重启中...' : '批量重启矿机'),
+                      label: Text(
+                        _batchRebootBusy
+                            ? l10n.t('segment.batchRebootBusy')
+                            : l10n.t('segment.batchReboot'),
+                      ),
                     ),
                   ),
                 ] else
-                  const Text(
-                    '长按单个矿机记录可进入批量选择模式。',
-                    style: TextStyle(color: Colors.black54),
+                  Text(
+                    l10n.t('segment.longPressHint'),
+                    style: const TextStyle(color: Colors.black54),
                   ),
               ],
             ),
@@ -235,42 +295,109 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
               itemBuilder: (context, index) {
                 final miner = miners[index];
                 final selected = _selectedIps.contains(miner.ip);
-                final tile = ListTile(
-                  leading: _selectionMode
-                      ? Checkbox(
-                          value: selected,
-                          onChanged: (_) => _toggleItemSelection(miner.ip),
-                        )
+                final ledActive = ledActiveIps.contains(miner.ip);
+                final tile = Container(
+                  color: ledActive
+                      ? Theme.of(context).colorScheme.primaryContainer
                       : null,
-                  title: Text(miner.ip),
-                  subtitle: Text(
-                    '${miner.stateLabel} | ${miner.runtime.ghs5s}/${miner.runtime.ghsav} | Last seen ${DateFormat('MM-dd HH:mm').format(miner.lastSeenAt)}',
-                  ),
-                  trailing: _selectionMode
-                      ? Icon(
-                          selected
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
-                        )
-                      : const Icon(Icons.chevron_right),
-                  selected: _selectionMode && selected,
-                  onLongPress: () {
-                    setState(() {
-                      _selectionMode = true;
-                      _selectedIps.add(miner.ip);
-                    });
-                  },
-                  onTap: () {
-                    if (_selectionMode) {
-                      _toggleItemSelection(miner.ip);
-                      return;
-                    }
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => MinerDetailPage(item: miner.lastItem),
+                  child: ListTile(
+                    leading: _selectionMode
+                        ? Checkbox(
+                            value: selected,
+                            onChanged: (_) => _toggleItemSelection(miner.ip),
+                          )
+                        : null,
+                    title: Text(miner.ip),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              if (miner.state == TrackedMinerState.online) ...[
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.green,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                              ],
+                              Expanded(
+                                child: Text(
+                                  '${_stateLabel(miner, l10n)} | ${miner.runtime.ghs5s}/${miner.runtime.ghsav} | Last seen ${DateFormat('MM-dd HH:mm').format(miner.lastSeenAt)}${ledActive ? ' | ${l10n.t('segment.ledOnTag')}' : ''}',
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          _HashrateBar(miner: miner),
+                          if (miner.diagnosis != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              l10n.t(
+                                'segment.issueReason',
+                                params: {'reason': miner.diagnosis!.reason},
+                              ),
+                              style: const TextStyle(
+                                color: Colors.orange,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              l10n.t(
+                                'segment.issueSolution',
+                                params: {'solution': miner.diagnosis!.solution},
+                              ),
+                              style: const TextStyle(color: Colors.black54),
+                            ),
+                            if (miner.diagnosis!.secondaryReason != null) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                l10n.t(
+                                  'segment.issueSecondary',
+                                  params: {
+                                    'reason': miner.diagnosis!.secondaryReason!,
+                                  },
+                                ),
+                                style: const TextStyle(color: Colors.black54),
+                              ),
+                            ],
+                          ],
+                        ],
                       ),
-                    );
-                  },
+                    ),
+                    trailing: _selectionMode
+                        ? Icon(
+                            selected
+                                ? Icons.check_circle
+                                : Icons.radio_button_unchecked,
+                          )
+                        : const Icon(Icons.chevron_right),
+                    selected: _selectionMode && selected,
+                    onLongPress: () {
+                      setState(() {
+                        _selectionMode = true;
+                        _selectedIps.add(miner.ip);
+                      });
+                    },
+                    onTap: () {
+                      if (_selectionMode) {
+                        _toggleItemSelection(miner.ip);
+                        return;
+                      }
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => MinerDetailPage(miner: miner),
+                        ),
+                      );
+                    },
+                  ),
                 );
 
                 if (!miner.canDelete) {
@@ -291,18 +418,23 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
                       context: context,
                       builder: (dialogContext) {
                         return AlertDialog(
-                          title: const Text('删除矿机'),
-                          content: Text('删除 ${miner.ip} 这台下架矿机记录？'),
+                          title: Text(l10n.t('segment.deleteMiner')),
+                          content: Text(
+                            l10n.t(
+                              'segment.deleteMinerMessage',
+                              params: {'ip': miner.ip},
+                            ),
+                          ),
                           actions: [
                             TextButton(
                               onPressed: () =>
                                   Navigator.of(dialogContext).pop(false),
-                              child: const Text('取消'),
+                              child: Text(l10n.t('common.cancel')),
                             ),
                             FilledButton(
                               onPressed: () =>
                                   Navigator.of(dialogContext).pop(true),
-                              child: const Text('删除'),
+                              child: Text(l10n.t('common.delete')),
                             ),
                           ],
                         );
@@ -336,15 +468,19 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
   Future<void> _confirmBatchLedOn(
     BuildContext context,
     MinerCredential credential,
+    AppLocalizer l10n,
   ) async {
     await _confirmBatchAction(
       context: context,
-      title: '确认批量打开指示灯',
-      message: '本次将打开 ${_selectedIps.length} 台矿机的指示灯，是否继续？',
+      title: l10n.t('segment.confirmLedOnTitle'),
+      message: l10n.t(
+        'segment.confirmLedOnMessage',
+        params: {'count': _selectedIps.length.toString()},
+      ),
+      cancelLabel: l10n.t('common.cancel'),
+      confirmLabel: l10n.t('common.confirm'),
       busySetter: (value) => setState(() => _batchBusy = value),
-      action: () => ref
-          .read(scanControllerProvider.notifier)
-          .toggleLedForIps(
+      action: () => ref.read(scanControllerProvider.notifier).toggleLedForIps(
             _selectedIps.toList(growable: false),
             true,
             credential,
@@ -355,15 +491,19 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
   Future<void> _confirmBatchLedOff(
     BuildContext context,
     MinerCredential credential,
+    AppLocalizer l10n,
   ) async {
     await _confirmBatchAction(
       context: context,
-      title: '确认批量关闭指示灯',
-      message: '本次将关闭 ${_selectedIps.length} 台矿机的指示灯，是否继续？',
+      title: l10n.t('segment.confirmLedOffTitle'),
+      message: l10n.t(
+        'segment.confirmLedOffMessage',
+        params: {'count': _selectedIps.length.toString()},
+      ),
+      cancelLabel: l10n.t('common.cancel'),
+      confirmLabel: l10n.t('common.confirm'),
       busySetter: (value) => setState(() => _batchOffBusy = value),
-      action: () => ref
-          .read(scanControllerProvider.notifier)
-          .toggleLedForIps(
+      action: () => ref.read(scanControllerProvider.notifier).toggleLedForIps(
             _selectedIps.toList(growable: false),
             false,
             credential,
@@ -375,6 +515,8 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
     required BuildContext context,
     required String title,
     required String message,
+    required String cancelLabel,
+    required String confirmLabel,
     required void Function(bool value) busySetter,
     required Future<dynamic> Function() action,
   }) async {
@@ -388,11 +530,11 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('取消'),
+              child: Text(cancelLabel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('确认'),
+              child: Text(confirmLabel),
             ),
           ],
         );
@@ -446,7 +588,7 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
   }
 
   List<TrackedMiner> _visibleMiners(List<TrackedMiner> miners) {
-    final filtered = miners.where((miner) {
+    return miners.where((miner) {
       return switch (_filter) {
         _SegmentFilter.all => true,
         _SegmentFilter.online => miner.state == TrackedMinerState.online,
@@ -457,6 +599,47 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
       };
     }).toList(growable: false)
       ..sort((a, b) => IpUtils.ipToInt(a.ip).compareTo(IpUtils.ipToInt(b.ip)));
-    return filtered;
   }
+
+  String _stateLabel(TrackedMiner miner, AppLocalizer l10n) {
+    return switch (miner.state) {
+      TrackedMinerState.online => l10n.t('segment.filter.online'),
+      TrackedMinerState.unresponsive => l10n.t('segment.filter.unresponsive'),
+      TrackedMinerState.offline => l10n.t('segment.filter.offline'),
+      _ => l10n.t('segment.filter.retired'),
+    };
+  }
+}
+
+class _HashrateBar extends StatelessWidget {
+  const _HashrateBar({required this.miner});
+
+  final TrackedMiner miner;
+
+  @override
+  Widget build(BuildContext context) {
+    final hashrate = HashrateUtils.effectiveGh(miner.runtime.ghs5s, miner.runtime.ghsav);
+    final color = hashrate > 11000
+        ? Colors.green
+        : hashrate > 5000
+            ? Colors.amber
+            : Colors.red;
+    final widthFactor = (hashrate / 15000).clamp(0.08, 1.0);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        height: 6,
+        color: Colors.black12,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: FractionallySizedBox(
+            widthFactor: widthFactor,
+            child: Container(color: color),
+          ),
+        ),
+      ),
+    );
+  }
+
 }

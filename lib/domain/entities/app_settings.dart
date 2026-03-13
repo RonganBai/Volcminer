@@ -24,7 +24,7 @@ class AppSettings {
     autoRefreshEnabled: false,
     showOfflineEnabled: true,
     collectLogsEnabled: true,
-    refreshIntervalSec: 60,
+    refreshIntervalSec: 900,
     scanConcurrency: 20,
     poolSearchUsername: '',
     minerUsername: 'root',

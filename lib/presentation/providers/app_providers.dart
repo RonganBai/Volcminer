@@ -2,6 +2,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:isar/isar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:volcminer/data/datasources/hash7_remote_data_source.dart';
 import 'package:volcminer/data/datasources/isar_local_data_source.dart';
 import 'package:volcminer/data/datasources/miner_local_data_source.dart';
@@ -21,6 +22,7 @@ import 'package:volcminer/domain/usecases/manage_scan_view_usecase.dart';
 import 'package:volcminer/domain/usecases/reboot_miner_usecase.dart';
 import 'package:volcminer/domain/usecases/search_pool_workers_usecase.dart';
 import 'package:volcminer/domain/usecases/toggle_indicator_usecase.dart';
+import 'package:volcminer/presentation/localization/app_language.dart';
 import 'package:volcminer/presentation/controllers/scan_controller.dart';
 import 'package:volcminer/presentation/controllers/scan_view_controller.dart';
 import 'package:volcminer/presentation/controllers/settings_controller.dart';
@@ -42,6 +44,33 @@ final secureStorageProvider = Provider<FlutterSecureStorage>((_) {
 final scanTargetModeProvider = StateProvider<ScanTargetMode>((_) {
   return ScanTargetMode.full;
 });
+
+class AppLanguageController extends StateNotifier<AppLanguage> {
+  AppLanguageController() : super(AppLanguage.en) {
+    _load();
+  }
+
+  static const String _key = 'app_language';
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_key);
+    if (saved == 'zh') {
+      state = AppLanguage.zh;
+    }
+  }
+
+  Future<void> setLanguage(AppLanguage language) async {
+    state = language;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_key, language.name);
+  }
+}
+
+final appLanguageProvider =
+    StateNotifierProvider<AppLanguageController, AppLanguage>((ref) {
+      return AppLanguageController();
+    });
 
 final isarLocalDataSourceProvider = Provider<IsarLocalDataSource>((ref) {
   return IsarLocalDataSource(ref.watch(isarProvider));
@@ -118,7 +147,7 @@ final settingsControllerProvider =
 
 final scanControllerProvider = StateNotifierProvider<ScanController, ScanState>(
   (ref) {
-    return ScanController(
+    final controller = ScanController(
       ref.watch(searchPoolWorkersUseCaseProvider),
       ref.watch(fetchMinerDetailUseCaseProvider),
       ref.watch(toggleIndicatorUseCaseProvider),
@@ -127,5 +156,7 @@ final scanControllerProvider = StateNotifierProvider<ScanController, ScanState>(
       ref.watch(applyPoolConfigUseCaseProvider),
       ref.watch(isarLocalDataSourceProvider),
     );
+    controller.loadPersistedState();
+    return controller;
   },
 );
