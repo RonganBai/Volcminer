@@ -1,0 +1,1 @@
+enum ScanTargetMode { full, known }
