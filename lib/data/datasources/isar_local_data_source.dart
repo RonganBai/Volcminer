@@ -252,6 +252,8 @@ class IsarLocalDataSource {
       'offlineSince': miner.offlineSince?.toIso8601String(),
       'offlineScanMisses': miner.offlineScanMisses,
       'retiredAt': miner.retiredAt?.toIso8601String(),
+      'zeroHashWaitUntil': miner.zeroHashWaitUntil?.toIso8601String(),
+      'forcedOfflineAt': miner.forcedOfflineAt?.toIso8601String(),
       'lastItem': _encodeItem(miner.lastItem),
       if (miner.diagnosis != null) 'diagnosis': _encodeDiagnosis(miner.diagnosis!),
     };
@@ -271,6 +273,12 @@ class IsarLocalDataSource {
       retiredAt: json['retiredAt'] == null
           ? null
           : DateTime.tryParse('${json['retiredAt']}'),
+      zeroHashWaitUntil: json['zeroHashWaitUntil'] == null
+          ? null
+          : DateTime.tryParse('${json['zeroHashWaitUntil']}'),
+      forcedOfflineAt: json['forcedOfflineAt'] == null
+          ? null
+          : DateTime.tryParse('${json['forcedOfflineAt']}'),
       lastItem: _decodeItem(Map<String, dynamic>.from(json['lastItem'] as Map)),
       diagnosis: json['diagnosis'] is Map
           ? _decodeDiagnosis(Map<String, dynamic>.from(json['diagnosis'] as Map))

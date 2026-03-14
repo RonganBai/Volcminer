@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -58,12 +59,17 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     final offline = allMiners
         .where((miner) => miner.state == TrackedMinerState.offline)
         .toList(growable: false);
+    final retired = allMiners
+        .where((miner) => miner.state == TrackedMinerState.retired)
+        .toList(growable: false);
     final onlineWithScope =
         _minersForState(scanState.segments, TrackedMinerState.online);
     final unresponsiveWithScope =
         _minersForState(scanState.segments, TrackedMinerState.unresponsive);
     final offlineWithScope =
         _minersForState(scanState.segments, TrackedMinerState.offline);
+    final retiredWithScope =
+        _minersForState(scanState.segments, TrackedMinerState.retired);
     final total = allMiners.length;
     final overallHashrateGh = online.fold<double>(
       0,
@@ -87,14 +93,20 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     final averageDisplay = _formatHashrate(averageHashrateGh);
 
     return FutureBuilder<_ScanScheduleInfo>(
-      future: _buildScheduleInfo(settings, scanState.lastScanAt),
+      future: _buildScheduleInfo(settings),
       builder: (context, snapshot) {
         final schedule = snapshot.data ??
             _ScanScheduleInfo(
               asOfText: l10n.t('overview.waitingFirstAutoScan'),
               nextScanText: l10n.t('overview.waitingFirstAutoScan'),
               countdownText: null,
+              progress: const AutoScanProgress(
+                isRunning: false,
+                scannedTargets: 0,
+                totalTargets: 0,
+              ),
             );
+        final scheduleDate = DateFormat('yyyy-MM-dd').format(_now);
 
         return ListView(
           padding: const EdgeInsets.all(16),
@@ -149,25 +161,55 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _InfoCard(
-                      title: l10n.t('overview.scanSchedule'),
+                      title: '',
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            schedule.asOfText,
+                            scheduleDate,
                             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.w700,
                                 ),
                           ),
-                          const SizedBox(height: 12),
-                          Text(schedule.nextScanText),
+                          const SizedBox(height: 2),
+                          Text(
+                            l10n.t('overview.scanSchedule'),
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            schedule.asOfText,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            schedule.nextScanText,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
                           if (schedule.countdownText != null) ...[
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 4),
                             Text(
                               schedule.countdownText!,
-                              style: const TextStyle(color: Colors.black54),
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.black54,
+                                  ),
                             ),
                           ],
+                          const SizedBox(height: 12),
+                          _AutoScanProgressRing(
+                            progress: schedule.progress,
+                            runningLabel: l10n.t('overview.autoScanRunning'),
+                            idleLabel: l10n.t('overview.autoScanIdle'),
+                            finalizingLabel: l10n.t('overview.autoScanFinalizing'),
+                            progressLabelBuilder: (current, total) => l10n.t(
+                              'overview.autoScanProgress',
+                              params: {
+                                'current': current.toString(),
+                                'total': total.toString(),
+                              },
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -176,61 +218,110 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               ),
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _SummaryCard(
-                    title: l10n.t('overview.currentHashrate'),
-                    value: hashrateDisplay.value,
-                    suffix: ' ${hashrateDisplay.unit}',
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _InfoCard(
-                    title: l10n.t('overview.averageHashrate'),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Wrap(
-                          spacing: 8,
-                          children: [
-                            ChoiceChip(
-                              label: Text(l10n.t('overview.averageWindow1h')),
-                              selected: !_show12hAverage,
-                              onSelected: (_) {
-                                setState(() => _show12hAverage = false);
-                              },
-                            ),
-                            ChoiceChip(
-                              label: Text(l10n.t('overview.averageWindow12h')),
-                              selected: _show12hAverage,
-                              onSelected: (_) {
-                                setState(() => _show12hAverage = true);
-                              },
-                            ),
-                          ],
+                        _SummaryCard(
+                          title: l10n.t('overview.retiredMiners'),
+                          value: '${retired.length}',
+                          color: Colors.grey.shade700,
+                          onTap: () => _openCategory(
+                            context,
+                            l10n,
+                            'overview.allRetiredTitle',
+                            retiredWithScope,
+                          ),
                         ),
                         const SizedBox(height: 12),
-                        Text(
-                          '${averageDisplay.value} ${averageDisplay.unit}',
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                color: Theme.of(context).colorScheme.secondary,
-                                fontWeight: FontWeight.w700,
-                              ),
+                        _SummaryCard(
+                          title: l10n.t('overview.currentHashrate'),
+                          value: hashrateDisplay.value,
+                          suffix: ' ${hashrateDisplay.unit}',
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                       ],
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _InfoCard(
+                      title: l10n.t('overview.averageHashrate'),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _show12hAverage
+                                      ? l10n.t('overview.averageWindow12h')
+                                      : l10n.t('overview.averageWindow1h'),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleSmall
+                                      ?.copyWith(fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  setState(
+                                    () => _show12hAverage = !_show12hAverage,
+                                  );
+                                },
+                                icon: const Icon(Icons.swap_horiz, size: 18),
+                                label: Text(
+                                  _show12hAverage
+                                      ? l10n.t('overview.averageWindow1h')
+                                      : l10n.t('overview.averageWindow12h'),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          RichText(
+                            text: TextSpan(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineSmall
+                                  ?.copyWith(
+                                    color: Theme.of(context).colorScheme.secondary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                              children: [
+                                TextSpan(text: averageDisplay.value),
+                                TextSpan(
+                                  text: ' ${averageDisplay.unit}',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleSmall
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .secondary,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 12),
             _InfoCard(
               title: l10n.t('overview.hourlyHashrateChart'),
               child: _HourlyHashrateChart(
                 samples: scanState.hashrateHistory,
+                window: averageWindow,
               ),
             ),
             const SizedBox(height: 12),
@@ -285,79 +376,92 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
   Future<_ScanScheduleInfo> _buildScheduleInfo(
     dynamic settings,
-    DateTime? lastScanAt,
   ) async {
     final l10n = AppLocalizer(ref);
     final lastAutoScanAt = await BackgroundScanService.getLastAutoScanAt();
+    final lastAutoScanAttemptAt =
+        await BackgroundScanService.getLastAutoScanAttemptAt();
     final nextStored = await BackgroundScanService.getNextAutoScanAtStored();
-    final asOfText = lastScanAt == null
-        ? l10n.t('overview.waitingFirstAutoScan')
+    final progress = await BackgroundScanService.getAutoScanProgress();
+    final computedNextAt = BackgroundScanService.getNextAutoScanAt(
+      settings: settings,
+      lastAutoScanAt: lastAutoScanAt,
+    );
+    final effectiveNextAt = _selectNextAutoScanAt(
+      nextStored: nextStored,
+      computedNextAt: computedNextAt,
+      lastAutoScanAt: lastAutoScanAt,
+    );
+    final asOfText = lastAutoScanAt == null
+        ? l10n.t('overview.dataAsOfCompact', params: {'time': '--'})
         : l10n.t(
-            'overview.dataAsOf',
-            params: {'time': DateFormat('yyyy-MM-dd HH:mm:ss').format(lastScanAt)},
+            'overview.dataAsOfCompact',
+            params: {'time': DateFormat('HH:mm').format(lastAutoScanAt)},
           );
 
     if (!settings.autoRefreshEnabled) {
       return _ScanScheduleInfo(
         asOfText: asOfText,
-        nextScanText: l10n.t('overview.autoRefreshOff'),
-        countdownText: null,
+        nextScanText: l10n.t('overview.nextScanAtCompact', params: {'time': '--'}),
+        countdownText: l10n.t(
+          'overview.nextScanInCompact',
+          params: {'duration': '00:00'},
+        ),
+        progress: progress,
       );
     }
 
-    final nextAt = nextStored ??
-        BackgroundScanService.getNextAutoScanAt(
-          settings: settings,
-          lastAutoScanAt: lastAutoScanAt,
-        );
+    final nextAt = effectiveNextAt;
     if (nextAt == null) {
       return _ScanScheduleInfo(
         asOfText: asOfText,
-        nextScanText: l10n.t('overview.waitingFirstAutoScan'),
-        countdownText: null,
+        nextScanText: l10n.t('overview.nextScanAtCompact', params: {'time': '--'}),
+        countdownText: l10n.t(
+          'overview.nextScanInCompact',
+          params: {'duration': '00:00'},
+        ),
+        progress: progress,
       );
     }
 
-    if (nextAt.isBefore(_now)) {
+    if (nextAt.isBefore(_now) || nextAt.isAtSameMomentAs(_now)) {
       return _ScanScheduleInfo(
         asOfText: asOfText,
-        nextScanText: l10n.t('overview.scanOverdue'),
+        nextScanText: lastAutoScanAttemptAt == null
+            ? l10n.t(
+                'overview.nextScanAtCompact',
+                params: {'time': DateFormat('HH:mm').format(nextAt)},
+              )
+            : l10n.t(
+                'overview.nextScanAtCompact',
+                params: {'time': DateFormat('HH:mm').format(nextAt)},
+              ),
         countdownText: l10n.t(
-          'overview.nextScanAt',
-          params: {'time': DateFormat('yyyy-MM-dd HH:mm:ss').format(nextAt)},
+          'overview.nextScanInCompact',
+          params: {'duration': '00:00'},
         ),
+        progress: progress,
       );
     }
 
     return _ScanScheduleInfo(
       asOfText: asOfText,
       nextScanText: l10n.t(
-        'overview.nextScanAt',
-        params: {'time': DateFormat('yyyy-MM-dd HH:mm:ss').format(nextAt)},
+        'overview.nextScanAtCompact',
+        params: {'time': DateFormat('HH:mm').format(nextAt)},
       ),
       countdownText: l10n.t(
-        'overview.nextScanIn',
+        'overview.nextScanInCompact',
         params: {'duration': _formatCountdown(nextAt, _now)},
       ),
+      progress: progress,
     );
   }
 
   _HashrateDisplay _formatHashrate(double ghValue) {
-    if (ghValue >= 1000000) {
-      return _HashrateDisplay(
-        value: (ghValue / 1000000).toStringAsFixed(2),
-        unit: 'PH/s',
-      );
-    }
-    if (ghValue >= 1000) {
-      return _HashrateDisplay(
-        value: (ghValue / 1000).toStringAsFixed(2),
-        unit: 'TH/s',
-      );
-    }
     return _HashrateDisplay(
-      value: ghValue.toStringAsFixed(2),
-      unit: 'GH/s',
+      value: (ghValue / 1000).toStringAsFixed(2),
+      unit: 'TH/s',
     );
   }
 
@@ -409,15 +513,31 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   String _formatCountdown(DateTime target, DateTime now) {
     final remaining = target.difference(now);
     if (remaining.isNegative) {
-      return '0s';
+      return '00:00';
     }
-    if (remaining.inHours >= 1) {
-      return '${remaining.inHours}h ${remaining.inMinutes.remainder(60)}m';
+    final totalMinutes = remaining.inMinutes;
+    final seconds = remaining.inSeconds.remainder(60);
+    return '${totalMinutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  DateTime? _selectNextAutoScanAt({
+    required DateTime? nextStored,
+    required DateTime? computedNextAt,
+    required DateTime? lastAutoScanAt,
+  }) {
+    if (computedNextAt == null) {
+      return nextStored;
     }
-    if (remaining.inMinutes >= 1) {
-      return '${remaining.inMinutes}m ${remaining.inSeconds.remainder(60)}s';
+    if (nextStored == null) {
+      return computedNextAt;
     }
-    return '${remaining.inSeconds}s';
+    if (lastAutoScanAt != null && !nextStored.isAfter(lastAutoScanAt)) {
+      return computedNextAt;
+    }
+    if (computedNextAt.isAfter(nextStored)) {
+      return computedNextAt;
+    }
+    return nextStored;
   }
 }
 
@@ -426,11 +546,13 @@ class _ScanScheduleInfo {
     required this.asOfText,
     required this.nextScanText,
     required this.countdownText,
+    required this.progress,
   });
 
   final String asOfText;
   final String nextScanText;
   final String? countdownText;
+  final AutoScanProgress progress;
 }
 
 class _HashrateDisplay {
@@ -438,6 +560,111 @@ class _HashrateDisplay {
 
   final String value;
   final String unit;
+}
+
+class _AutoScanProgressRing extends StatelessWidget {
+  const _AutoScanProgressRing({
+    required this.progress,
+    required this.runningLabel,
+    required this.idleLabel,
+    required this.finalizingLabel,
+    required this.progressLabelBuilder,
+  });
+
+  final AutoScanProgress progress;
+  final String runningLabel;
+  final String idleLabel;
+  final String finalizingLabel;
+  final String Function(int current, int total) progressLabelBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = progress.ratio;
+    final isFinalizing =
+        progress.phase == 'finalizing' ||
+        (progress.isRunning &&
+            progress.totalTargets > 0 &&
+            progress.scannedTargets >= progress.totalTargets);
+    return Column(
+      children: [
+        Row(
+          children: [
+            SizedBox(
+              width: 56,
+              height: 56,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  CircularProgressIndicator(
+                    value: progress.isRunning ? ratio : 0,
+                    strokeWidth: 6,
+                    backgroundColor: Colors.black12,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      progress.isRunning
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.black26,
+                    ),
+                  ),
+                  Center(
+                    child: Text(
+                      progress.isRunning && ratio != null
+                          ? '${(ratio * 100).round()}%'
+                          : '--',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    progress.isRunning ? runningLabel : idleLabel,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    progressLabelBuilder(
+                      progress.scannedTargets,
+                      progress.totalTargets,
+                    ),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.black54,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (isFinalizing) ...[
+          const SizedBox(height: 10),
+          LinearProgressIndicator(
+            value: null,
+            minHeight: 6,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              finalizingLabel,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.black54,
+                  ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }
 
 class _InfoCard extends StatelessWidget {
@@ -457,8 +684,10 @@ class _InfoCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(color: Colors.black54)),
-            const SizedBox(height: 8),
+            if (title.isNotEmpty) ...[
+              Text(title, style: const TextStyle(color: Colors.black54)),
+              const SizedBox(height: 8),
+            ],
             child,
           ],
         ),
@@ -495,12 +724,30 @@ class _SummaryCard extends StatelessWidget {
             children: [
               Text(title, style: const TextStyle(color: Colors.black54)),
               const SizedBox(height: 8),
-              Text(
-                '$value$suffix',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: color,
-                      fontWeight: FontWeight.w700,
-                    ),
+              RichText(
+                text: TextSpan(
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: color,
+                        fontWeight: FontWeight.w700,
+                      ),
+                  children: [
+                    TextSpan(text: value),
+                    if (suffix.isNotEmpty)
+                      TextSpan(
+                        text: suffix,
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              color: color,
+                              fontWeight: FontWeight.w700,
+                              fontSize: (Theme.of(context)
+                                          .textTheme
+                                          .headlineSmall
+                                          ?.fontSize ??
+                                      24) *
+                                  0.72,
+                            ),
+                      ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -511,14 +758,18 @@ class _SummaryCard extends StatelessWidget {
 }
 
 class _HourlyHashrateChart extends ConsumerWidget {
-  const _HourlyHashrateChart({required this.samples});
+  const _HourlyHashrateChart({
+    required this.samples,
+    required this.window,
+  });
 
   final List<HashrateSample> samples;
+  final Duration window;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizer(ref);
-    final buckets = _buildHourlyBuckets(samples);
+    final buckets = _buildBuckets(samples, window);
     if (buckets.every((bucket) => bucket.value <= 0)) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 28),
@@ -532,49 +783,59 @@ class _HourlyHashrateChart extends ConsumerWidget {
     }
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          height: 180,
-          child: CustomPaint(
-            painter: _HashrateChartPainter(buckets: buckets),
-          ),
+        Text(
+          l10n.t('overview.chartAxisHashrate'),
+          style: const TextStyle(color: Colors.black54),
         ),
         const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              DateFormat('HH:mm').format(buckets.first.time),
-              style: const TextStyle(color: Colors.black54),
-            ),
-            Text(
-              DateFormat('HH:mm').format(buckets.last.time),
-              style: const TextStyle(color: Colors.black54),
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return SizedBox(
+              width: constraints.maxWidth,
+              height: 260,
+              child: CustomPaint(
+                size: Size(constraints.maxWidth, 260),
+                painter: _HashrateChartPainter(
+                  buckets: buckets,
+                  window: window,
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 6),
+        Center(
+          child: Text(
+            l10n.t('overview.chartAxisTime'),
+            style: const TextStyle(color: Colors.black54),
+          ),
         ),
       ],
     );
   }
 
-  List<_ChartBucket> _buildHourlyBuckets(List<HashrateSample> source) {
+  List<_ChartBucket> _buildBuckets(List<HashrateSample> source, Duration window) {
     final now = DateTime.now();
     final buckets = <_ChartBucket>[];
-    for (var i = 11; i >= 0; i--) {
-      final hourStart = DateTime(now.year, now.month, now.day, now.hour - i);
-      final hourEnd = hourStart.add(const Duration(hours: 1));
+    final bucketMinutes = window.inHours >= 12 ? 60 : 10;
+    final divisions = window.inMinutes ~/ bucketMinutes;
+    for (var i = divisions - 1; i >= 0; i--) {
+      final bucketStart = now.subtract(Duration(minutes: bucketMinutes * (i + 1)));
+      final bucketEnd = bucketStart.add(Duration(minutes: bucketMinutes));
       final points = source
           .where(
             (sample) =>
-                !sample.recordedAt.isBefore(hourStart) &&
-                sample.recordedAt.isBefore(hourEnd),
+                !sample.recordedAt.isBefore(bucketStart) &&
+                sample.recordedAt.isBefore(bucketEnd),
           )
           .toList(growable: false);
       final avg = points.isEmpty
           ? 0.0
           : points.fold<double>(0, (sum, sample) => sum + sample.totalHashrateGh) /
               points.length;
-      buckets.add(_ChartBucket(time: hourStart, value: avg));
+      buckets.add(_ChartBucket(time: bucketStart, value: avg / 1000));
     }
     return buckets;
   }
@@ -588,15 +849,31 @@ class _ChartBucket {
 }
 
 class _HashrateChartPainter extends CustomPainter {
-  const _HashrateChartPainter({required this.buckets});
+  const _HashrateChartPainter({
+    required this.buckets,
+    required this.window,
+  });
 
   final List<_ChartBucket> buckets;
+  final Duration window;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final chartRect = Rect.fromLTWH(8, 8, size.width - 16, size.height - 20);
+    const leftInset = 36.0;
+    const topInset = 12.0;
+    const rightInset = 12.0;
+    const bottomInset = 42.0;
+    final chartRect = Rect.fromLTWH(
+      leftInset,
+      topInset,
+      size.width - leftInset - rightInset,
+      size.height - topInset - bottomInset,
+    );
     final axisPaint = Paint()
       ..color = Colors.black12
+      ..strokeWidth = 1;
+    final borderPaint = Paint()
+      ..color = Colors.black26
       ..strokeWidth = 1;
     final linePaint = Paint()
       ..color = const Color(0xFF0B5E4E)
@@ -606,35 +883,127 @@ class _HashrateChartPainter extends CustomPainter {
     final fillPaint = Paint()
       ..color = const Color(0xFF0B5E4E).withValues(alpha: 0.12)
       ..style = PaintingStyle.fill;
-    final maxValue = math.max(
-      1,
-      buckets.fold<double>(0, (maxSoFar, bucket) => math.max(maxSoFar, bucket.value)),
+    final rawMaxValue = buckets.fold<double>(
+      0,
+      (maxSoFar, bucket) => math.max(maxSoFar, bucket.value),
+    );
+    final maxValue = math.max(10, (rawMaxValue / 10).ceil() * 10).toDouble();
+    final labelStyle = const TextStyle(
+      color: Colors.black54,
+      fontSize: 11,
+    );
+    final xLabelStyle = const TextStyle(color: Colors.black54, fontSize: 10);
+
+    canvas.drawLine(
+      Offset(chartRect.left, chartRect.top),
+      Offset(chartRect.left, chartRect.bottom),
+      borderPaint,
+    );
+    canvas.drawLine(
+      Offset(chartRect.left, chartRect.bottom),
+      Offset(chartRect.right, chartRect.bottom),
+      borderPaint,
     );
 
-    for (var i = 0; i < 4; i++) {
-      final y = chartRect.top + (chartRect.height / 3) * i;
+    final horizontalSteps = math.max(1, (maxValue / 10).round());
+    for (var i = 0; i <= horizontalSteps; i++) {
+      final y = chartRect.bottom - (chartRect.height * (i / horizontalSteps));
       canvas.drawLine(
         Offset(chartRect.left, y),
         Offset(chartRect.right, y),
         axisPaint,
       );
+      final value = i * 10.0;
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: value.toStringAsFixed(0),
+          style: labelStyle,
+        ),
+        textDirection: ui.TextDirection.ltr,
+      )..layout();
+      textPainter.paint(
+        canvas,
+        Offset(chartRect.left - textPainter.width - 6, y - textPainter.height / 2),
+      );
     }
 
-    final path = Path();
-    final fillPath = Path();
+    final points = <Offset>[];
     for (var i = 0; i < buckets.length; i++) {
       final dx = chartRect.left +
           (chartRect.width * i / math.max(1, buckets.length - 1));
       final dy = chartRect.bottom -
-          (chartRect.height * (buckets[i].value / maxValue));
-      if (i == 0) {
-        path.moveTo(dx, dy);
-        fillPath.moveTo(dx, chartRect.bottom);
-        fillPath.lineTo(dx, dy);
-      } else {
-        path.lineTo(dx, dy);
-        fillPath.lineTo(dx, dy);
+          (chartRect.height * (buckets[i].value / maxValue).clamp(0, 1));
+      points.add(Offset(dx, dy));
+
+      canvas.drawLine(
+        Offset(dx, chartRect.top),
+        Offset(dx, chartRect.bottom),
+        axisPaint,
+      );
+    }
+
+    final labelIndexes = _buildXAxisLabelIndexes(points.length);
+    for (final index in labelIndexes) {
+      if (index < 0 || index >= buckets.length) {
+        continue;
       }
+      final dx = points[index].dx;
+      final xLabel = TextPainter(
+        text: TextSpan(
+          text: _formatBucketLabel(buckets[index].time),
+          style: xLabelStyle,
+        ),
+        textDirection: ui.TextDirection.ltr,
+      )..layout();
+      final desiredX = dx - xLabel.width / 2;
+      final clampedX = desiredX.clamp(
+        chartRect.left,
+        chartRect.right - xLabel.width,
+      );
+      xLabel.paint(
+        canvas,
+        Offset(
+          clampedX,
+          chartRect.bottom + 8,
+        ),
+      );
+    }
+
+    if (points.isEmpty) {
+      return;
+    }
+
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    final fillPath = Path()
+      ..moveTo(points.first.dx, chartRect.bottom)
+      ..lineTo(points.first.dx, points.first.dy);
+    for (var i = 1; i < points.length; i++) {
+      final previous = points[i - 1];
+      final current = points[i];
+      final controlPoint1 = Offset(
+        previous.dx + (current.dx - previous.dx) / 2,
+        previous.dy,
+      );
+      final controlPoint2 = Offset(
+        previous.dx + (current.dx - previous.dx) / 2,
+        current.dy,
+      );
+      path.cubicTo(
+        controlPoint1.dx,
+        controlPoint1.dy,
+        controlPoint2.dx,
+        controlPoint2.dy,
+        current.dx,
+        current.dy,
+      );
+      fillPath.cubicTo(
+        controlPoint1.dx,
+        controlPoint1.dy,
+        controlPoint2.dx,
+        controlPoint2.dy,
+        current.dx,
+        current.dy,
+      );
     }
     fillPath.lineTo(chartRect.right, chartRect.bottom);
     fillPath.close();
@@ -642,8 +1011,33 @@ class _HashrateChartPainter extends CustomPainter {
     canvas.drawPath(path, linePaint);
   }
 
+  String _formatBucketLabel(DateTime value) {
+    return DateFormat('HH:mm').format(value);
+  }
+
+  List<int> _buildXAxisLabelIndexes(int count) {
+    if (count <= 1) {
+      return const [0];
+    }
+    if (window.inHours >= 12) {
+      return {
+        0,
+        count ~/ 4,
+        count ~/ 2,
+        (count * 3) ~/ 4,
+        count - 1,
+      }.toList()..sort();
+    }
+    return {
+      0,
+      count ~/ 3,
+      (count * 2) ~/ 3,
+      count - 1,
+    }.toList()..sort();
+  }
+
   @override
   bool shouldRepaint(covariant _HashrateChartPainter oldDelegate) {
-    return oldDelegate.buckets != buckets;
+    return oldDelegate.buckets != buckets || oldDelegate.window != window;
   }
 }

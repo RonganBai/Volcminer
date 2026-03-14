@@ -20,6 +20,8 @@ class TrackedMiner {
     this.offlineSince,
     this.offlineScanMisses = 0,
     this.retiredAt,
+    this.zeroHashWaitUntil,
+    this.forcedOfflineAt,
     this.diagnosis,
   });
 
@@ -31,11 +33,16 @@ class TrackedMiner {
   final DateTime? offlineSince;
   final int offlineScanMisses;
   final DateTime? retiredAt;
+  final DateTime? zeroHashWaitUntil;
+  final DateTime? forcedOfflineAt;
   final MinerIssueDiagnosis? diagnosis;
 
   String get state {
     if (retiredAt != null) {
       return TrackedMinerState.retired;
+    }
+    if (forcedOfflineAt != null) {
+      return TrackedMinerState.offline;
     }
     return switch (missedScans) {
       0 => TrackedMinerState.online,
@@ -56,6 +63,7 @@ class TrackedMiner {
   bool get isOnline => state == TrackedMinerState.online;
   bool get canDelete => state == TrackedMinerState.retired;
   bool get hasIssue => diagnosis != null;
+  bool get isWaitingZeroHashRecheck => zeroHashWaitUntil != null;
 
   MinerRuntime get runtime => lastItem.runtime;
 
@@ -75,6 +83,10 @@ class TrackedMiner {
     int? offlineScanMisses,
     DateTime? retiredAt,
     bool clearRetiredAt = false,
+    DateTime? zeroHashWaitUntil,
+    bool clearZeroHashWaitUntil = false,
+    DateTime? forcedOfflineAt,
+    bool clearForcedOfflineAt = false,
     MinerIssueDiagnosis? diagnosis,
     bool clearDiagnosis = false,
   }) {
@@ -88,6 +100,12 @@ class TrackedMiner {
       offlineSince: clearOfflineSince ? null : (offlineSince ?? this.offlineSince),
       offlineScanMisses: offlineScanMisses ?? this.offlineScanMisses,
       retiredAt: clearRetiredAt ? null : (retiredAt ?? this.retiredAt),
+      zeroHashWaitUntil: clearZeroHashWaitUntil
+          ? null
+          : (zeroHashWaitUntil ?? this.zeroHashWaitUntil),
+      forcedOfflineAt: clearForcedOfflineAt
+          ? null
+          : (forcedOfflineAt ?? this.forcedOfflineAt),
       diagnosis: clearDiagnosis ? null : (diagnosis ?? this.diagnosis),
     );
   }

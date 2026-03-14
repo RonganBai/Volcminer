@@ -329,7 +329,7 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
                               ],
                               Expanded(
                                 child: Text(
-                                  '${_stateLabel(miner, l10n)} | ${miner.runtime.ghs5s}/${miner.runtime.ghsav} | Last seen ${DateFormat('MM-dd HH:mm').format(miner.lastSeenAt)}${ledActive ? ' | ${l10n.t('segment.ledOnTag')}' : ''}',
+                                  '${_stateLabel(miner, l10n)} | ${miner.runtime.ghs5s}/${miner.runtime.ghsav} | Last seen ${DateFormat('MM-dd HH:mm').format(miner.runtime.fetchedAt)}${ledActive ? ' | ${l10n.t('segment.ledOnTag')}' : ''}',
                                 ),
                               ),
                             ],

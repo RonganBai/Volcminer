@@ -68,6 +68,11 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
         title: Text(currentMiner.ip),
         actions: [
           IconButton(
+            onPressed: () => _confirmRetireMiner(context, currentMiner.ip, l10n),
+            tooltip: l10n.t('miner.retire'),
+            icon: const Icon(Icons.delete_outline),
+          ),
+          IconButton(
             onPressed: _refreshBusy
                 ? null
                 : () => _refreshMiner(
@@ -564,5 +569,43 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
       MinerRuntimeStatus.offline => l10n.t('status.offline'),
       _ => value,
     };
+  }
+
+  Future<void> _confirmRetireMiner(
+    BuildContext context,
+    String ip,
+    AppLocalizer l10n,
+  ) async {
+    final navigator = Navigator.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(l10n.t('miner.retire')),
+          content: Text(
+            l10n.t('miner.retireMessage', params: {'ip': ip}),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(l10n.t('common.cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(l10n.t('common.delete')),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    ref.read(scanControllerProvider.notifier).removeMinerByIp(ip);
+    if (!mounted) {
+      return;
+    }
+    navigator.pop();
   }
 }

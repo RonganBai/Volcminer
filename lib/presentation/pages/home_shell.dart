@@ -7,8 +7,10 @@ import 'package:volcminer/presentation/controllers/scan_controller.dart';
 import 'package:volcminer/presentation/controllers/scan_view_controller.dart';
 import 'package:volcminer/presentation/controllers/settings_controller.dart';
 import 'package:volcminer/presentation/localization/app_localizer.dart';
+import 'package:volcminer/presentation/pages/auto_scan_log_page.dart';
 import 'package:volcminer/presentation/pages/barcode_scanner_page.dart';
 import 'package:volcminer/presentation/pages/dashboard_page.dart';
+import 'package:volcminer/presentation/pages/known_miner_page.dart';
 import 'package:volcminer/presentation/pages/scan_result_page.dart';
 import 'package:volcminer/presentation/pages/scan_page.dart';
 import 'package:volcminer/presentation/pages/settings_page.dart';
@@ -170,6 +172,28 @@ class _HomeShellState extends ConsumerState<HomeShell> with WidgetsBindingObserv
               )
             : null,
         actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const KnownMinerPage(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.storage_outlined),
+            tooltip: l10n.t('app.knownMiners.open'),
+          ),
+          IconButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const AutoScanLogPage(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.receipt_long_outlined),
+            tooltip: l10n.t('app.autoScanLog.open'),
+          ),
           IconButton(
             onPressed: () {
               Navigator.of(context).push(

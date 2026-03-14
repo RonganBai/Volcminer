@@ -27,5 +27,12 @@
     "matches": ["fan err", "fan error", "fan lost", "fan speed too low", "fan abnormal", "fan fail"],
     "reason": "A fan failure or abnormal fan speed was detected.",
     "solution": "Check fan wiring, replace the failed fan, and verify all fans can reach normal speed."
+  },
+  {
+    "code": "AUTHEN_START_WAIT",
+    "category": "recovery_wait",
+    "matches": ["Authen Start !!!!!"],
+    "reason": "The miner restarted authentication after an error and needs a short recovery window.",
+    "solution": "Keep the miner under observation for 10 minutes, then refresh this miner only and confirm whether the hashrate has recovered."
   }
 ]

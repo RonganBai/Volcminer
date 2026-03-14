@@ -94,23 +94,33 @@ class SettingsPage extends ConsumerWidget {
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
-          children: [20, 30, 40, 50, 60]
+          children: [20, 30, 40, 50, 60, 100]
               .map(
                 (value) => ChoiceChip(
                   label: Text('$value'),
                   selected: settings.scanConcurrency == value,
                   onSelected: (_) async {
-                    if (value == 60) {
+                    if (value >= 60) {
                       final confirmed = await showDialog<bool>(
                         context: context,
                         builder: (dialogContext) {
                           return AlertDialog(
-                            title: Text(l10n.t('settings.scanConcurrencyWarningTitle')),
+                            title: Text(
+                              l10n.t(
+                                'settings.scanConcurrencyWarningTitle',
+                                params: {'value': value.toString()},
+                              ),
+                            ),
                             content: Column(
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(l10n.t('settings.scanConcurrencyWarningBody')),
+                                Text(
+                                  l10n.t(
+                                    'settings.scanConcurrencyWarningBody',
+                                    params: {'value': value.toString()},
+                                  ),
+                                ),
                                 const SizedBox(height: 8),
                                 Text(l10n.t('settings.scanConcurrencyWarningHint')),
                               ],

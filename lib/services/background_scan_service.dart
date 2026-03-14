@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui';
 
 import 'package:flutter/widgets.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:isar/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:volcminer/core/utils/ip_utils.dart';
 import 'package:volcminer/data/datasources/isar_local_data_source.dart';
 import 'package:volcminer/data/datasources/miner_local_data_source.dart';
 import 'package:volcminer/data/isar_factory.dart';
@@ -30,9 +32,12 @@ const int _notificationId = 8842;
 const String _lastAutoScanAtKey = 'background_auto_scan_last_at';
 const String _lastAutoScanAttemptAtKey = 'background_auto_scan_last_attempt_at';
 const String _nextAutoScanAtKey = 'background_auto_scan_next_at';
+const String _autoScanLogsKey = 'background_auto_scan_logs';
+const String _autoScanProgressKey = 'background_auto_scan_progress';
 
 Timer? _backgroundTimer;
 bool _backgroundScanBusy = false;
+bool _backgroundRunPending = false;
 Isar? _backgroundIsar;
 
 class BackgroundScanService {
@@ -97,8 +102,65 @@ class BackgroundScanService {
 
   static Stream<Map<String, dynamic>?> on(String event) => _service.on(event);
 
+  static Future<List<AutoScanLogEntry>> getAutoScanLogs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.reload();
+    final raw = prefs.getString(_autoScanLogsKey);
+    if (raw == null || raw.trim().isEmpty) {
+      return const [];
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) {
+        return const [];
+      }
+      final logs = decoded
+          .whereType<Map>()
+          .map((entry) => AutoScanLogEntry.fromJson(Map<String, dynamic>.from(entry)))
+          .toList(growable: false);
+      logs.sort((a, b) => b.startedAt.compareTo(a.startedAt));
+      return logs;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  static Future<AutoScanProgress> getAutoScanProgress() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.reload();
+    final raw = prefs.getString(_autoScanProgressKey);
+    if (raw == null || raw.trim().isEmpty) {
+      return const AutoScanProgress(
+        isRunning: false,
+        scannedTargets: 0,
+        totalTargets: 0,
+        phase: 'idle',
+      );
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) {
+        return const AutoScanProgress(
+          isRunning: false,
+          scannedTargets: 0,
+          totalTargets: 0,
+          phase: 'idle',
+        );
+      }
+      return AutoScanProgress.fromJson(decoded);
+    } catch (_) {
+      return const AutoScanProgress(
+        isRunning: false,
+        scannedTargets: 0,
+        totalTargets: 0,
+        phase: 'idle',
+      );
+    }
+  }
+
   static Future<DateTime?> getLastAutoScanAt() async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.reload();
     final raw = prefs.getString(_lastAutoScanAtKey);
     if (raw == null) {
       return null;
@@ -108,6 +170,7 @@ class BackgroundScanService {
 
   static Future<DateTime?> getLastAutoScanAttemptAt() async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.reload();
     final raw = prefs.getString(_lastAutoScanAttemptAtKey);
     if (raw == null) {
       return null;
@@ -117,6 +180,7 @@ class BackgroundScanService {
 
   static Future<DateTime?> getNextAutoScanAtStored() async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.reload();
     final raw = prefs.getString(_nextAutoScanAtKey);
     if (raw == null) {
       return null;
@@ -135,6 +199,94 @@ class BackgroundScanService {
         ? 900
         : settings.refreshIntervalSec;
     return lastAutoScanAt.add(Duration(seconds: intervalSeconds));
+  }
+}
+
+class AutoScanLogEntry {
+  const AutoScanLogEntry({
+    required this.id,
+    required this.startedAt,
+    this.finishedAt,
+    required this.status,
+    this.onlineCount,
+    this.note,
+  });
+
+  final String id;
+  final DateTime startedAt;
+  final DateTime? finishedAt;
+  final String status;
+  final int? onlineCount;
+  final String? note;
+
+  factory AutoScanLogEntry.fromJson(Map<String, dynamic> json) {
+    return AutoScanLogEntry(
+      id: '${json['id'] ?? ''}',
+      startedAt: DateTime.tryParse('${json['startedAt'] ?? ''}') ?? DateTime.now(),
+      finishedAt: json['finishedAt'] == null
+          ? null
+          : DateTime.tryParse('${json['finishedAt']}'),
+      status: '${json['status'] ?? 'unknown'}',
+      onlineCount: (json['onlineCount'] as num?)?.toInt(),
+      note: json['note'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'startedAt': startedAt.toIso8601String(),
+      'finishedAt': finishedAt?.toIso8601String(),
+      'status': status,
+      'onlineCount': onlineCount,
+      'note': note,
+    };
+  }
+}
+
+class AutoScanProgress {
+  const AutoScanProgress({
+    required this.isRunning,
+    required this.scannedTargets,
+    required this.totalTargets,
+    this.phase = 'idle',
+    this.startedAt,
+  });
+
+  final bool isRunning;
+  final int scannedTargets;
+  final int totalTargets;
+  final String phase;
+  final DateTime? startedAt;
+
+  double? get ratio {
+    if (totalTargets <= 0) {
+      return null;
+    }
+    final value = scannedTargets / totalTargets;
+    return value.clamp(0, 1).toDouble();
+  }
+
+  factory AutoScanProgress.fromJson(Map<String, dynamic> json) {
+    return AutoScanProgress(
+      isRunning: json['isRunning'] == true,
+      scannedTargets: (json['scannedTargets'] as num?)?.toInt() ?? 0,
+      totalTargets: (json['totalTargets'] as num?)?.toInt() ?? 0,
+      phase: '${json['phase'] ?? 'idle'}',
+      startedAt: json['startedAt'] == null
+          ? null
+          : DateTime.tryParse('${json['startedAt']}'),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'isRunning': isRunning,
+      'scannedTargets': scannedTargets,
+      'totalTargets': totalTargets,
+      'phase': phase,
+      'startedAt': startedAt?.toIso8601String(),
+    };
   }
 }
 
@@ -210,14 +362,30 @@ Future<void> _restartSchedule(ServiceInstance service) async {
 
 Future<void> _runBackgroundScan(ServiceInstance service) async {
   if (_backgroundScanBusy) {
+    _backgroundRunPending = true;
     return;
   }
   _backgroundScanBusy = true;
+  _backgroundRunPending = false;
+  final startedAt = DateTime.now();
+  final logId = startedAt.microsecondsSinceEpoch.toString();
+  await _appendAutoScanLog(
+    AutoScanLogEntry(
+      id: logId,
+      startedAt: startedAt,
+      status: 'running',
+    ),
+  );
 
   try {
     await _markAutoScanAttempted();
     final context = await _loadBackgroundContext();
     if (context == null) {
+      await _finishAutoScanLog(
+        logId,
+        status: 'failed',
+        note: 'Background storage unavailable',
+      );
       await _showNotification(
         title: 'VolcMiner Auto Scan',
         body: 'Background storage unavailable',
@@ -226,6 +394,11 @@ Future<void> _runBackgroundScan(ServiceInstance service) async {
     }
 
     if (!context.settings.autoRefreshEnabled) {
+      await _finishAutoScanLog(
+        logId,
+        status: 'skipped',
+        note: 'Auto-refresh disabled',
+      );
       await _showNotification(
         title: 'VolcMiner Auto Scan',
         body: 'Auto-refresh disabled',
@@ -234,6 +407,11 @@ Future<void> _runBackgroundScan(ServiceInstance service) async {
     }
 
     if (context.views.isEmpty) {
+      await _finishAutoScanLog(
+        logId,
+        status: 'skipped',
+        note: 'No scan views available',
+      );
       await _showNotification(
         title: 'VolcMiner Auto Scan',
         body: 'No scan views available',
@@ -243,6 +421,11 @@ Future<void> _runBackgroundScan(ServiceInstance service) async {
 
     await context.controller.loadPersistedState();
     if (context.controller.snapshot.knownMinerIpsByScope.isEmpty) {
+      await _finishAutoScanLog(
+        logId,
+        status: 'skipped',
+        note: 'No known miner IPs yet',
+      );
       await _showNotification(
         title: 'VolcMiner Auto Scan',
         body: 'No known miner IPs yet. Run one full scan first.',
@@ -250,45 +433,128 @@ Future<void> _runBackgroundScan(ServiceInstance service) async {
       return;
     }
 
+    final totalTargets = _countKnownTargetsForViews(
+      context.views,
+      context.controller.snapshot.knownMinerIpsByScope,
+    );
+    await _saveAutoScanProgress(
+      AutoScanProgress(
+        isRunning: true,
+        scannedTargets: 0,
+        totalTargets: totalTargets,
+        phase: 'scanning',
+        startedAt: startedAt,
+      ),
+    );
+    final progressTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      final snapshot = context.controller.snapshot;
+      unawaited(
+        _saveAutoScanProgress(
+          AutoScanProgress(
+            isRunning: true,
+            scannedTargets: snapshot.scannedTargets,
+            totalTargets: snapshot.totalTargets > 0
+                ? snapshot.totalTargets
+                : totalTargets,
+            phase: snapshot.isPostProcessing ? 'finalizing' : 'scanning',
+            startedAt: startedAt,
+          ),
+        ),
+      );
+    });
+
     await _showNotification(
       title: 'VolcMiner Auto Scan',
       body: 'Scanning known miners in the background...',
     );
 
-    await context.controller.startAutoRefreshScan(
-      allViews: context.views,
-      accountUsername: context.settings.poolSearchUsername,
-      accountPassword: context.poolSearchPassword,
-      minerCredential: MinerCredential(
-        username: context.settings.minerUsername,
-        password: context.minerAuthPassword,
-      ),
-      concurrency: context.settings.scanConcurrency,
-    );
+    try {
+      await context.controller.startAutoRefreshScan(
+        allViews: context.views,
+        accountUsername: context.settings.poolSearchUsername,
+        accountPassword: context.poolSearchPassword,
+        minerCredential: MinerCredential(
+          username: context.settings.minerUsername,
+          password: context.minerAuthPassword,
+        ),
+        concurrency: context.settings.scanConcurrency,
+      );
 
-    final onlineCount = context.controller.snapshot.segments
-        .expand((segment) => segment.miners)
-        .where((miner) => miner.state == 'online')
-        .length;
-    await _markAutoScanRan();
-    await _markNextAutoScanAt(
-      DateTime.now().add(Duration(seconds: context.settings.refreshIntervalSec <= 0 ? 900 : context.settings.refreshIntervalSec)),
-    );
-    await _showNotification(
-      title: 'VolcMiner Auto Scan',
-      body: 'Last scan complete. Online miners: $onlineCount',
-    );
-    service.invoke(
-      'scanUpdated',
-      {'timestamp': DateTime.now().toIso8601String()},
-    );
+      final onlineCount = context.controller.snapshot.segments
+          .expand((segment) => segment.miners)
+          .where((miner) => miner.state == 'online')
+          .length;
+      await _markAutoScanRan();
+      await _markNextAutoScanAt(
+        DateTime.now().add(Duration(seconds: context.settings.refreshIntervalSec <= 0 ? 900 : context.settings.refreshIntervalSec)),
+      );
+      await _finishAutoScanLog(
+        logId,
+        status: 'success',
+        onlineCount: onlineCount,
+      );
+      await _saveAutoScanProgress(
+        AutoScanProgress(
+          isRunning: true,
+          scannedTargets: context.controller.snapshot.totalTargets > 0
+              ? context.controller.snapshot.totalTargets
+              : totalTargets,
+          totalTargets: context.controller.snapshot.totalTargets > 0
+              ? context.controller.snapshot.totalTargets
+              : totalTargets,
+          phase: 'finalizing',
+          startedAt: startedAt,
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      await _saveAutoScanProgress(
+        AutoScanProgress(
+          isRunning: false,
+          scannedTargets: context.controller.snapshot.totalTargets > 0
+              ? context.controller.snapshot.totalTargets
+              : totalTargets,
+          totalTargets: context.controller.snapshot.totalTargets > 0
+              ? context.controller.snapshot.totalTargets
+              : totalTargets,
+          phase: 'idle',
+          startedAt: startedAt,
+        ),
+      );
+      await _showNotification(
+        title: 'VolcMiner Auto Scan',
+        body: 'Last scan complete. Online miners: $onlineCount',
+      );
+      service.invoke(
+        'scanUpdated',
+        {'timestamp': DateTime.now().toIso8601String()},
+      );
+    } finally {
+      progressTimer.cancel();
+    }
   } catch (e) {
+    await _finishAutoScanLog(
+      logId,
+      status: 'failed',
+      note: '$e',
+    );
+    await _saveAutoScanProgress(
+      const AutoScanProgress(
+        isRunning: false,
+        scannedTargets: 0,
+        totalTargets: 0,
+        phase: 'idle',
+      ),
+    );
     await _showNotification(
       title: 'VolcMiner Auto Scan',
       body: 'Auto-refresh failed: $e',
     );
   } finally {
     _backgroundScanBusy = false;
+    if (_backgroundRunPending) {
+      _backgroundRunPending = false;
+      unawaited(_runBackgroundScan(service));
+    }
   }
 }
 
@@ -362,6 +628,77 @@ Future<void> _markAutoScanAttempted() async {
 Future<void> _markNextAutoScanAt(DateTime value) async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.setString(_nextAutoScanAtKey, value.toIso8601String());
+}
+
+Future<void> _appendAutoScanLog(AutoScanLogEntry entry) async {
+  final prefs = await SharedPreferences.getInstance();
+  final current = await BackgroundScanService.getAutoScanLogs();
+  final updated = [entry, ...current];
+  if (updated.length > 80) {
+    updated.removeRange(80, updated.length);
+  }
+  await prefs.setString(
+    _autoScanLogsKey,
+    jsonEncode(updated.map((log) => log.toJson()).toList(growable: false)),
+  );
+}
+
+Future<void> _finishAutoScanLog(
+  String id, {
+  required String status,
+  int? onlineCount,
+  String? note,
+}) async {
+  final prefs = await SharedPreferences.getInstance();
+  final current = await BackgroundScanService.getAutoScanLogs();
+  final updated = current
+      .map(
+        (log) => log.id == id
+            ? AutoScanLogEntry(
+                id: log.id,
+                startedAt: log.startedAt,
+                finishedAt: DateTime.now(),
+                status: status,
+                onlineCount: onlineCount ?? log.onlineCount,
+                note: note,
+              )
+            : log,
+      )
+      .toList(growable: false);
+  await prefs.setString(
+    _autoScanLogsKey,
+    jsonEncode(updated.map((log) => log.toJson()).toList(growable: false)),
+  );
+}
+
+Future<void> _saveAutoScanProgress(AutoScanProgress progress) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(_autoScanProgressKey, jsonEncode(progress.toJson()));
+}
+
+int _countKnownTargetsForViews(
+  List<ScanView> views,
+  Map<String, Set<String>> knownMinerIpsByScope,
+) {
+  final scopes = <String>{};
+  for (final view in views) {
+    final ips = IpUtils.expandAll(
+      cidr: view.cidr,
+      startIp: view.startIp,
+      endIp: view.endIp,
+    );
+    for (final ip in ips) {
+      final parts = ip.split('.');
+      if (parts.length == 4) {
+        scopes.add('${parts[0]}.${parts[1]}.${parts[2]}');
+      }
+    }
+  }
+  final targets = <String>{};
+  for (final scope in scopes) {
+    targets.addAll(knownMinerIpsByScope[scope] ?? const <String>{});
+  }
+  return targets.length;
 }
 
 Future<void> _showNotification({

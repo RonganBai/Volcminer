@@ -28,7 +28,8 @@ class HashrateUtils {
     if (normalized.contains('KH')) {
       return number / 1000000;
     }
-    return number;
+    // VolcMiner machine runtime values are reported in MH/s when the unit is omitted.
+    return number / 1000;
   }
 
   static double effectiveGh(String current, String average) {

@@ -150,6 +150,8 @@ class ScanState {
 }
 
 class ScanController extends StateNotifier<ScanState> {
+  static const double _maxReasonableTotalHashrateGh = 1000000;
+
   ScanController(
     this._searchPoolWorkersUseCase,
     this._fetchMinerDetailUseCase,
@@ -177,13 +179,19 @@ class ScanController extends StateNotifier<ScanState> {
     if (persisted == null) {
       return;
     }
+    final cleanedHashrateHistory = _sanitizeHashrateHistory(
+      persisted.hashrateHistory,
+    );
     state = state.copyWith(
       segments: persisted.segments,
       knownMinerIpsByScope: persisted.knownMinerIpsByScope,
-      hashrateHistory: persisted.hashrateHistory,
+      hashrateHistory: cleanedHashrateHistory,
       ledActiveIps: persisted.ledActiveIps,
       lastScanAt: persisted.lastScanAt,
     );
+    if (cleanedHashrateHistory.length != persisted.hashrateHistory.length) {
+      unawaited(_persistState(scannedAt: persisted.lastScanAt));
+    }
   }
 
   ScanState get snapshot => state;
@@ -445,6 +453,11 @@ class ScanController extends StateNotifier<ScanState> {
         scannedAt: scannedAt,
         diagnoses: diagnoses,
       );
+      final reconciledSegments = await _runDueZeroHashRechecks(
+        segments: nextSegments,
+        credential: minerCredential,
+        scannedAt: scannedAt,
+      );
       final totalHashrateGh = items
           .where((item) => item.runtime.onlineStatus == MinerRuntimeStatus.online)
           .fold<double>(
@@ -468,7 +481,7 @@ class ScanController extends StateNotifier<ScanState> {
         scannedTargets: fetchResult.completedCount,
         totalTargets: workers.length,
         items: items,
-        segments: nextSegments,
+        segments: reconciledSegments,
         knownMinerIpsByScope: nextKnownIndex,
         hashrateHistory: nextHashrateHistory,
         sessions: [session, ...state.sessions],
@@ -580,6 +593,42 @@ class ScanController extends StateNotifier<ScanState> {
       knownMinerIpsByScope: knownMinerIpsByScope,
     );
     unawaited(_persistState(scannedAt: state.lastScanAt));
+  }
+
+  void removeMinerByIp(String ip) {
+    String? scope;
+    for (final segment in state.segments) {
+      if (segment.miners.any((miner) => miner.ip == ip)) {
+        scope = segment.scope;
+        break;
+      }
+    }
+    if (scope == null) {
+      final nextLedIps = {...state.ledActiveIps}..remove(ip);
+      state = state.copyWith(ledActiveIps: nextLedIps);
+      unawaited(_persistState(scannedAt: state.lastScanAt));
+      return;
+    }
+    deleteSegmentMiner(scope, ip);
+  }
+
+  bool addKnownMinerIp(String ip) {
+    final normalized = ip.trim();
+    if (!IpUtils.isValidIpv4(normalized)) {
+      return false;
+    }
+    final scope = _scopeOfIp(normalized);
+    final known = <String, Set<String>>{
+      for (final entry in state.knownMinerIpsByScope.entries) entry.key: {...entry.value},
+    };
+    final scopeIps = known.putIfAbsent(scope, () => <String>{});
+    final inserted = scopeIps.add(normalized);
+    if (!inserted) {
+      return false;
+    }
+    state = state.copyWith(knownMinerIpsByScope: known);
+    unawaited(_persistState(scannedAt: state.lastScanAt));
+    return true;
   }
 
   void setupAutoRefresh({
@@ -851,6 +900,20 @@ class ScanController extends StateNotifier<ScanState> {
 
   MinerIssueDiagnosis _analyzeLog(String log, List<_IssueRule> rules) {
     final normalizedLog = log.trim().isEmpty ? '--' : log.trim();
+    final authenRecoveryMatch = _matchAuthenRecoveryWait(normalizedLog, rules);
+    if (authenRecoveryMatch != null) {
+      return MinerIssueDiagnosis(
+        code: authenRecoveryMatch.rule.code,
+        category: authenRecoveryMatch.rule.category,
+        reason: authenRecoveryMatch.rule.reason,
+        solution: authenRecoveryMatch.rule.solution,
+        logSnippet: _trimSnippet(authenRecoveryMatch.snippet),
+        detectedAt: DateTime.now(),
+        secondaryCode: 'ERRORMSG',
+        secondaryReason:
+            'Kernel error occurred before the miner restarted authentication.',
+      );
+    }
     final primaryMatch = _findFirstRuleMatch(normalizedLog, rules);
     if (primaryMatch != null) {
       final primaryRule = primaryMatch.rule;
@@ -926,6 +989,45 @@ class ScanController extends StateNotifier<ScanState> {
       }
     }
     return null;
+  }
+
+  _RuleMatch? _matchAuthenRecoveryWait(String log, List<_IssueRule> rules) {
+    _IssueRule? authRule;
+    for (final rule in rules) {
+      if (rule.code == 'AUTHEN_START_WAIT') {
+        authRule = rule;
+        break;
+      }
+    }
+    if (authRule == null) {
+      return null;
+    }
+
+    final normalized = log.replaceAll('\r', '');
+    final lower = normalized.toLowerCase();
+    final errorIndex = lower.lastIndexOf('errormsg');
+    final authIndex = lower.lastIndexOf('authen start !!!!!');
+    if (errorIndex == -1 || authIndex == -1 || authIndex <= errorIndex) {
+      return null;
+    }
+
+    final lines = normalized.split('\n');
+    var lineIndex = 0;
+    var traversedChars = 0;
+    for (var i = 0; i < lines.length; i++) {
+      traversedChars += lines[i].length + 1;
+      if (traversedChars > authIndex) {
+        lineIndex = i;
+        break;
+      }
+    }
+    final start = lineIndex - 6 < 0 ? 0 : lineIndex - 6;
+    final end = lineIndex + 3 >= lines.length ? lines.length - 1 : lineIndex + 3;
+    return _RuleMatch(
+      rule: authRule,
+      start: authIndex,
+      snippet: lines.sublist(start, end + 1).join('\n').trim(),
+    );
   }
 
   List<PoolWorker> _dedupeWorkersByIp(List<PoolWorker> workers) {
@@ -1004,6 +1106,11 @@ class ScanController extends StateNotifier<ScanState> {
         final current = seenMiners[entry.key];
         if (current != null) {
           final diagnosis = diagnoses[entry.key];
+          final shouldWaitForZeroHashRecovery = _shouldWaitForZeroHashRecovery(
+            diagnosis,
+          );
+          final hasRecoveredHashrate =
+              HashrateUtils.effectiveGh(current.runtime.ghs5s, current.runtime.ghsav) > 0;
           merged.add(
             entry.value.copyWith(
               lastItem: current,
@@ -1013,6 +1120,12 @@ class ScanController extends StateNotifier<ScanState> {
               offlineScanMisses: 0,
               clearOfflineSince: true,
               clearRetiredAt: true,
+              zeroHashWaitUntil: shouldWaitForZeroHashRecovery
+                  ? (entry.value.zeroHashWaitUntil ??
+                      scannedAt.add(const Duration(minutes: 10)))
+                  : null,
+              clearZeroHashWaitUntil: !shouldWaitForZeroHashRecovery,
+              clearForcedOfflineAt: hasRecoveredHashrate,
               diagnosis: diagnosis,
               clearDiagnosis: diagnosis == null,
             ),
@@ -1043,6 +1156,9 @@ class ScanController extends StateNotifier<ScanState> {
             missedScans: 0,
             clearRefineAttempted: false,
             offlineScanMisses: 0,
+            zeroHashWaitUntil: _shouldWaitForZeroHashRecovery(diagnoses[entry.key])
+                ? scannedAt.add(const Duration(minutes: 10))
+                : null,
             diagnosis: diagnoses[entry.key],
           ),
         );
@@ -1096,7 +1212,7 @@ class ScanController extends StateNotifier<ScanState> {
     }
 
     final result = await _clearRefineUseCase.execute(targets, credential);
-    return result.success ? result.targets.toSet() : const <String>{};
+    return result.success ? result.targets.toSet() : targets.toSet();
   }
 
   TrackedMiner _advanceMissingMinerState(
@@ -1169,19 +1285,149 @@ class ScanController extends StateNotifier<ScanState> {
     );
   }
 
+  bool _shouldWaitForZeroHashRecovery(MinerIssueDiagnosis? diagnosis) {
+    return diagnosis?.code == 'AUTHEN_START_WAIT';
+  }
+
+  Future<List<ScanSegmentRecord>> _runDueZeroHashRechecks({
+    required List<ScanSegmentRecord> segments,
+    required MinerCredential credential,
+    required DateTime scannedAt,
+  }) async {
+    final dueIps = <String>[];
+    for (final segment in segments) {
+      for (final miner in segment.miners) {
+        final waitUntil = miner.zeroHashWaitUntil;
+        if (waitUntil != null &&
+            (waitUntil.isBefore(scannedAt) || waitUntil.isAtSameMomentAs(scannedAt))) {
+          dueIps.add(miner.ip);
+        }
+      }
+    }
+    if (dueIps.isEmpty) {
+      return segments;
+    }
+
+    final refreshedByIp = <String, MinerScanItem>{};
+    for (final ip in dueIps) {
+      final runtime = await _fetchMinerDetailUseCase.getRuntime(
+        ip,
+        credential,
+        collectLog: false,
+      );
+      refreshedByIp[ip] = MinerScanItem(
+        worker: PoolWorker(
+          workerName: ip,
+          ip: ip,
+          status: '',
+          lastShareTime: '',
+          dailyHashrate: '',
+          rejectRate: '',
+        ),
+        runtime: MinerRuntime(
+          ip: runtime.ip,
+          onlineStatus: runtime.onlineStatus,
+          ghs5s: runtime.ghs5s,
+          ghsav: runtime.ghsav,
+          ambientTemp: runtime.ambientTemp,
+          power: runtime.power,
+          fan1: runtime.fan1,
+          fan2: runtime.fan2,
+          fan3: runtime.fan3,
+          fan4: runtime.fan4,
+          runningMode: runtime.runningMode,
+          logSnippet: '--',
+          fetchedAt: runtime.fetchedAt,
+        ),
+      );
+    }
+
+    return [
+      for (final segment in segments)
+        segment.copyWith(
+          miners: [
+            for (final miner in segment.miners)
+              _reconcileDueZeroHashRecheck(
+                miner,
+                refreshedByIp[miner.ip],
+                scannedAt,
+              ),
+          ],
+        ),
+    ];
+  }
+
+  TrackedMiner _reconcileDueZeroHashRecheck(
+    TrackedMiner miner,
+    MinerScanItem? refreshed,
+    DateTime scannedAt,
+  ) {
+    if (miner.zeroHashWaitUntil == null) {
+      return miner;
+    }
+    if (refreshed == null) {
+      return miner.copyWith(
+        clearZeroHashWaitUntil: true,
+        forcedOfflineAt: scannedAt,
+      );
+    }
+
+    final effectiveGh = HashrateUtils.effectiveGh(
+      refreshed.runtime.ghs5s,
+      refreshed.runtime.ghsav,
+    );
+    if (refreshed.runtime.onlineStatus == MinerRuntimeStatus.online && effectiveGh > 0) {
+      return miner.copyWith(
+        lastItem: refreshed,
+        lastSeenAt: refreshed.runtime.fetchedAt,
+        missedScans: 0,
+        clearRefineAttempted: false,
+        offlineScanMisses: 0,
+        clearOfflineSince: true,
+        clearRetiredAt: true,
+        clearZeroHashWaitUntil: true,
+        clearForcedOfflineAt: true,
+        clearDiagnosis: true,
+      );
+    }
+
+    return miner.copyWith(
+      lastItem: refreshed,
+      lastSeenAt: refreshed.runtime.fetchedAt,
+      missedScans: 2,
+      offlineSince: miner.offlineSince ?? scannedAt,
+      clearZeroHashWaitUntil: true,
+      forcedOfflineAt: scannedAt,
+    );
+  }
+
   List<HashrateSample> _appendHashrateSample(
     List<HashrateSample> history,
     HashrateSample next,
   ) {
+    if (!_isReasonableHashrateSample(next)) {
+      return _sanitizeHashrateHistory(history);
+    }
     final cutoff = next.recordedAt.subtract(const Duration(days: 7));
     final updated = [
-      ...history.where((sample) => sample.recordedAt.isAfter(cutoff)),
+      ...history
+          .where((sample) => sample.recordedAt.isAfter(cutoff))
+          .where(_isReasonableHashrateSample),
       next,
     ];
     if (updated.length <= 2000) {
       return updated;
     }
     return updated.sublist(updated.length - 2000);
+  }
+
+  List<HashrateSample> _sanitizeHashrateHistory(List<HashrateSample> history) {
+    return history.where(_isReasonableHashrateSample).toList(growable: false);
+  }
+
+  bool _isReasonableHashrateSample(HashrateSample sample) {
+    return sample.totalHashrateGh >= 0 &&
+        sample.totalHashrateGh <= _maxReasonableTotalHashrateGh;
   }
 }
 
