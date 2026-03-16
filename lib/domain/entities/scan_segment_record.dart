@@ -17,7 +17,9 @@ class ScanSegmentRecord {
   int get offlineCount =>
       miners.where((miner) => miner.state == TrackedMinerState.offline).length;
   int get retiredCount =>
-      miners.where((miner) => miner.state == TrackedMinerState.retired).length;
+      miners
+          .where((miner) => miner.state == TrackedMinerState.pendingRetire)
+          .length;
   int get issueCount => miners.where((miner) => miner.hasIssue).length;
   bool get hasIssues => issueCount > 0;
 

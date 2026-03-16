@@ -1,12 +1,10 @@
 import 'dart:async';
-import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:volcminer/core/utils/hashrate_utils.dart';
-import 'package:volcminer/domain/entities/hashrate_sample.dart';
+import 'package:volcminer/core/utils/ip_utils.dart';
 import 'package:volcminer/domain/entities/tracked_miner.dart';
 import 'package:volcminer/presentation/localization/app_localizer.dart';
 import 'package:volcminer/presentation/pages/miner_category_page.dart';
@@ -21,7 +19,6 @@ class DashboardPage extends ConsumerStatefulWidget {
 }
 
 class _DashboardPageState extends ConsumerState<DashboardPage> {
-  bool _show12hAverage = false;
   DateTime _now = DateTime.now();
   Timer? _ticker;
 
@@ -49,27 +46,21 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     final allMiners = scanState.segments
         .expand((segment) => segment.miners)
         .toList(growable: false);
-
     final online = allMiners
-        .where((miner) => miner.state == TrackedMinerState.online)
+        .where((miner) => miner.state == TrackedMinerState.online && !_isZeroHashOnline(miner))
         .toList(growable: false);
     final unresponsive = allMiners
-        .where((miner) => miner.state == TrackedMinerState.unresponsive)
+        .where((miner) => miner.state == TrackedMinerState.unresponsive || _isZeroHashOnline(miner))
         .toList(growable: false);
     final offline = allMiners
         .where((miner) => miner.state == TrackedMinerState.offline)
         .toList(growable: false);
     final retired = allMiners
-        .where((miner) => miner.state == TrackedMinerState.retired)
+        .where((miner) => miner.state == TrackedMinerState.pendingRetire)
         .toList(growable: false);
-    final onlineWithScope =
-        _minersForState(scanState.segments, TrackedMinerState.online);
-    final unresponsiveWithScope =
-        _minersForState(scanState.segments, TrackedMinerState.unresponsive);
-    final offlineWithScope =
-        _minersForState(scanState.segments, TrackedMinerState.offline);
-    final retiredWithScope =
-        _minersForState(scanState.segments, TrackedMinerState.retired);
+    final abnormal = allMiners
+        .where((miner) => miner.diagnosis != null || _isZeroHashOnline(miner))
+        .toList(growable: false);
     final total = allMiners.length;
     final overallHashrateGh = online.fold<double>(
       0,
@@ -78,20 +69,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
     final hashrateDisplay = _formatHashrate(overallHashrateGh);
     final onlineRate = total == 0 ? 0 : (online.length / total) * 100;
-    final unstableScopes = scanState.segments
-        .where((segment) => segment.miners.any((miner) => miner.missedScans >= 2))
-        .map((segment) => segment.scope)
-        .toList(growable: false);
-    final averageWindow = _show12hAverage
-        ? const Duration(hours: 12)
-        : const Duration(hours: 1);
-    final averageHashrateGh = _averageHashrate(
-      scanState.hashrateHistory,
-      averageWindow,
-      _now,
-    );
-    final averageDisplay = _formatHashrate(averageHashrateGh);
-
+    final unstableMinerIps = allMiners
+        .where((miner) => miner.offlineEventCount >= 3)
+        .map((miner) => miner.ip)
+        .toList(growable: false)
+      ..sort(IpUtils.compareIpBlocks);
     return FutureBuilder<_ScanScheduleInfo>(
       future: _buildScheduleInfo(settings),
       builder: (context, snapshot) {
@@ -126,9 +108,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                           color: Colors.green,
                           onTap: () => _openCategory(
                             context,
-                            l10n,
                             'overview.allOnlineTitle',
-                            onlineWithScope,
+                            TrackedMinerState.online,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -138,9 +119,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                           color: Colors.amber.shade700,
                           onTap: () => _openCategory(
                             context,
-                            l10n,
                             'overview.allUnresponsiveTitle',
-                            unresponsiveWithScope,
+                            TrackedMinerState.unresponsive,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -150,9 +130,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                           color: Colors.red.shade400,
                           onTap: () => _openCategory(
                             context,
-                            l10n,
                             'overview.allOfflineTitle',
-                            offlineWithScope,
+                            TrackedMinerState.offline,
                           ),
                         ),
                       ],
@@ -202,6 +181,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                             runningLabel: l10n.t('overview.autoScanRunning'),
                             idleLabel: l10n.t('overview.autoScanIdle'),
                             finalizingLabel: l10n.t('overview.autoScanFinalizing'),
+                            stageLabelBuilder: (stageKey) =>
+                                l10n.t(stageKey ?? 'overview.autoScanFinalizing'),
                             progressLabelBuilder: (current, total) => l10n.t(
                               'overview.autoScanProgress',
                               params: {
@@ -232,9 +213,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                           color: Colors.grey.shade700,
                           onTap: () => _openCategory(
                             context,
-                            l10n,
                             'overview.allRetiredTitle',
-                            retiredWithScope,
+                            TrackedMinerState.pendingRetire,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -249,87 +229,31 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _InfoCard(
-                      title: l10n.t('overview.averageHashrate'),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  _show12hAverage
-                                      ? l10n.t('overview.averageWindow12h')
-                                      : l10n.t('overview.averageWindow1h'),
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleSmall
-                                      ?.copyWith(fontWeight: FontWeight.w700),
-                                ),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: () {
-                                  setState(
-                                    () => _show12hAverage = !_show12hAverage,
-                                  );
-                                },
-                                icon: const Icon(Icons.swap_horiz, size: 18),
-                                label: Text(
-                                  _show12hAverage
-                                      ? l10n.t('overview.averageWindow1h')
-                                      : l10n.t('overview.averageWindow12h'),
-                                ),
-                              ),
-                            ],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _SummaryCard(
+                          title: l10n.t('overview.abnormalMiners'),
+                          value: '${abnormal.length}',
+                          color: Colors.deepOrange,
+                          onTap: () => _openCategory(
+                            context,
+                            'overview.allAbnormalTitle',
+                            'abnormal',
                           ),
-                          const SizedBox(height: 12),
-                          RichText(
-                            text: TextSpan(
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineSmall
-                                  ?.copyWith(
-                                    color: Theme.of(context).colorScheme.secondary,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                              children: [
-                                TextSpan(text: averageDisplay.value),
-                                TextSpan(
-                                  text: ' ${averageDisplay.unit}',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleSmall
-                                      ?.copyWith(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .secondary,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 12),
+                        _SummaryCard(
+                          title: l10n.t('overview.onlineRate'),
+                          value: onlineRate.toStringAsFixed(1),
+                          suffix: '%',
+                          color: Theme.of(context).colorScheme.secondary,
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 12),
-            _InfoCard(
-              title: l10n.t('overview.hourlyHashrateChart'),
-              child: _HourlyHashrateChart(
-                samples: scanState.hashrateHistory,
-                window: averageWindow,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _SummaryCard(
-              title: l10n.t('overview.onlineRate'),
-              value: onlineRate.toStringAsFixed(1),
-              suffix: '%',
-              color: Theme.of(context).colorScheme.secondary,
             ),
             const SizedBox(height: 16),
             Card(
@@ -343,7 +267,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
-                    if (unstableScopes.isEmpty)
+                    if (unstableMinerIps.isEmpty)
                       Text(
                         l10n.t('overview.unstableScopesEmpty'),
                         style: const TextStyle(color: Colors.black54),
@@ -352,14 +276,15 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: unstableScopes
+                        children: unstableMinerIps
                             .map(
-                              (scope) => Chip(
-                                label: Text(scope),
+                              (ip) => InputChip(
+                                label: Text(ip),
                                 avatar: const Icon(
                                   Icons.warning_amber_rounded,
                                   size: 18,
                                 ),
+                                onDeleted: () => _confirmRemoveUnstableIp(context, ip),
                               ),
                             )
                             .toList(growable: false),
@@ -465,49 +390,42 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
   }
 
-  double _averageHashrate(
-    List<HashrateSample> samples,
-    Duration window,
-    DateTime now,
-  ) {
-    final cutoff = now.subtract(window);
-    final scoped = samples.where((sample) => sample.recordedAt.isAfter(cutoff)).toList();
-    if (scoped.isEmpty) {
-      return 0;
-    }
-    final total = scoped.fold<double>(
-      0,
-      (sum, sample) => sum + sample.totalHashrateGh,
-    );
-    return total / scoped.length;
-  }
-
-  List<TrackedMinerWithScope> _minersForState(
-    List<dynamic> segments,
-    String state,
-  ) {
-    return [
-      for (final segment in segments)
-        for (final miner in segment.miners)
-          if (miner.state == state)
-            TrackedMinerWithScope(scope: segment.scope, miner: miner),
-    ];
-  }
-
   void _openCategory(
     BuildContext context,
-    AppLocalizer l10n,
     String titleKey,
-    List<TrackedMinerWithScope> miners,
+    String stateFilter,
   ) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => MinerCategoryPage(
           titleKey: titleKey,
-          miners: miners,
+          stateFilter: stateFilter,
         ),
       ),
     );
+  }
+
+  Future<void> _confirmRemoveUnstableIp(BuildContext context, String ip) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('移除多次掉线标记'),
+        content: Text('确认将 $ip 从多次掉线列表中移除吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('移除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      ref.read(scanControllerProvider.notifier).clearUnstableMinerFlag(ip);
+    }
   }
 
   String _formatCountdown(DateTime target, DateTime now) {
@@ -539,6 +457,17 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     }
     return nextStored;
   }
+
+  bool _isZeroHashOnline(TrackedMiner miner) {
+    return miner.state == TrackedMinerState.online && miner.effectiveHashrate <= 0;
+  }
+}
+
+class _HashrateDisplay {
+  const _HashrateDisplay({required this.value, required this.unit});
+
+  final String value;
+  final String unit;
 }
 
 class _ScanScheduleInfo {
@@ -555,19 +484,13 @@ class _ScanScheduleInfo {
   final AutoScanProgress progress;
 }
 
-class _HashrateDisplay {
-  const _HashrateDisplay({required this.value, required this.unit});
-
-  final String value;
-  final String unit;
-}
-
 class _AutoScanProgressRing extends StatelessWidget {
   const _AutoScanProgressRing({
     required this.progress,
     required this.runningLabel,
     required this.idleLabel,
     required this.finalizingLabel,
+    required this.stageLabelBuilder,
     required this.progressLabelBuilder,
   });
 
@@ -575,6 +498,7 @@ class _AutoScanProgressRing extends StatelessWidget {
   final String runningLabel;
   final String idleLabel;
   final String finalizingLabel;
+  final String Function(String? stageKey) stageLabelBuilder;
   final String Function(int current, int total) progressLabelBuilder;
 
   @override
@@ -647,19 +571,34 @@ class _AutoScanProgressRing extends StatelessWidget {
         if (isFinalizing) ...[
           const SizedBox(height: 10),
           LinearProgressIndicator(
-            value: null,
+            value: progress.stageTotal > 0
+                ? (progress.stageCurrent / progress.stageTotal).clamp(0, 1).toDouble()
+                : 0,
             minHeight: 6,
             borderRadius: BorderRadius.circular(999),
           ),
           const SizedBox(height: 6),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              finalizingLabel,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.black54,
-                  ),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  stageLabelBuilder(progress.stageKey),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.black54,
+                      ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                progress.stageTotal > 0
+                    ? '${((progress.stageCurrent / progress.stageTotal) * 100).round()}%'
+                    : '0%',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.black54,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
           ),
         ],
       ],
@@ -754,290 +693,5 @@ class _SummaryCard extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _HourlyHashrateChart extends ConsumerWidget {
-  const _HourlyHashrateChart({
-    required this.samples,
-    required this.window,
-  });
-
-  final List<HashrateSample> samples;
-  final Duration window;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizer(ref);
-    final buckets = _buildBuckets(samples, window);
-    if (buckets.every((bucket) => bucket.value <= 0)) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 28),
-        child: Center(
-          child: Text(
-            l10n.t('overview.chartEmpty'),
-            style: const TextStyle(color: Colors.black54),
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l10n.t('overview.chartAxisHashrate'),
-          style: const TextStyle(color: Colors.black54),
-        ),
-        const SizedBox(height: 8),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            return SizedBox(
-              width: constraints.maxWidth,
-              height: 260,
-              child: CustomPaint(
-                size: Size(constraints.maxWidth, 260),
-                painter: _HashrateChartPainter(
-                  buckets: buckets,
-                  window: window,
-                ),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 6),
-        Center(
-          child: Text(
-            l10n.t('overview.chartAxisTime'),
-            style: const TextStyle(color: Colors.black54),
-          ),
-        ),
-      ],
-    );
-  }
-
-  List<_ChartBucket> _buildBuckets(List<HashrateSample> source, Duration window) {
-    final now = DateTime.now();
-    final buckets = <_ChartBucket>[];
-    final bucketMinutes = window.inHours >= 12 ? 60 : 10;
-    final divisions = window.inMinutes ~/ bucketMinutes;
-    for (var i = divisions - 1; i >= 0; i--) {
-      final bucketStart = now.subtract(Duration(minutes: bucketMinutes * (i + 1)));
-      final bucketEnd = bucketStart.add(Duration(minutes: bucketMinutes));
-      final points = source
-          .where(
-            (sample) =>
-                !sample.recordedAt.isBefore(bucketStart) &&
-                sample.recordedAt.isBefore(bucketEnd),
-          )
-          .toList(growable: false);
-      final avg = points.isEmpty
-          ? 0.0
-          : points.fold<double>(0, (sum, sample) => sum + sample.totalHashrateGh) /
-              points.length;
-      buckets.add(_ChartBucket(time: bucketStart, value: avg / 1000));
-    }
-    return buckets;
-  }
-}
-
-class _ChartBucket {
-  const _ChartBucket({required this.time, required this.value});
-
-  final DateTime time;
-  final double value;
-}
-
-class _HashrateChartPainter extends CustomPainter {
-  const _HashrateChartPainter({
-    required this.buckets,
-    required this.window,
-  });
-
-  final List<_ChartBucket> buckets;
-  final Duration window;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const leftInset = 36.0;
-    const topInset = 12.0;
-    const rightInset = 12.0;
-    const bottomInset = 42.0;
-    final chartRect = Rect.fromLTWH(
-      leftInset,
-      topInset,
-      size.width - leftInset - rightInset,
-      size.height - topInset - bottomInset,
-    );
-    final axisPaint = Paint()
-      ..color = Colors.black12
-      ..strokeWidth = 1;
-    final borderPaint = Paint()
-      ..color = Colors.black26
-      ..strokeWidth = 1;
-    final linePaint = Paint()
-      ..color = const Color(0xFF0B5E4E)
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    final fillPaint = Paint()
-      ..color = const Color(0xFF0B5E4E).withValues(alpha: 0.12)
-      ..style = PaintingStyle.fill;
-    final rawMaxValue = buckets.fold<double>(
-      0,
-      (maxSoFar, bucket) => math.max(maxSoFar, bucket.value),
-    );
-    final maxValue = math.max(10, (rawMaxValue / 10).ceil() * 10).toDouble();
-    final labelStyle = const TextStyle(
-      color: Colors.black54,
-      fontSize: 11,
-    );
-    final xLabelStyle = const TextStyle(color: Colors.black54, fontSize: 10);
-
-    canvas.drawLine(
-      Offset(chartRect.left, chartRect.top),
-      Offset(chartRect.left, chartRect.bottom),
-      borderPaint,
-    );
-    canvas.drawLine(
-      Offset(chartRect.left, chartRect.bottom),
-      Offset(chartRect.right, chartRect.bottom),
-      borderPaint,
-    );
-
-    final horizontalSteps = math.max(1, (maxValue / 10).round());
-    for (var i = 0; i <= horizontalSteps; i++) {
-      final y = chartRect.bottom - (chartRect.height * (i / horizontalSteps));
-      canvas.drawLine(
-        Offset(chartRect.left, y),
-        Offset(chartRect.right, y),
-        axisPaint,
-      );
-      final value = i * 10.0;
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: value.toStringAsFixed(0),
-          style: labelStyle,
-        ),
-        textDirection: ui.TextDirection.ltr,
-      )..layout();
-      textPainter.paint(
-        canvas,
-        Offset(chartRect.left - textPainter.width - 6, y - textPainter.height / 2),
-      );
-    }
-
-    final points = <Offset>[];
-    for (var i = 0; i < buckets.length; i++) {
-      final dx = chartRect.left +
-          (chartRect.width * i / math.max(1, buckets.length - 1));
-      final dy = chartRect.bottom -
-          (chartRect.height * (buckets[i].value / maxValue).clamp(0, 1));
-      points.add(Offset(dx, dy));
-
-      canvas.drawLine(
-        Offset(dx, chartRect.top),
-        Offset(dx, chartRect.bottom),
-        axisPaint,
-      );
-    }
-
-    final labelIndexes = _buildXAxisLabelIndexes(points.length);
-    for (final index in labelIndexes) {
-      if (index < 0 || index >= buckets.length) {
-        continue;
-      }
-      final dx = points[index].dx;
-      final xLabel = TextPainter(
-        text: TextSpan(
-          text: _formatBucketLabel(buckets[index].time),
-          style: xLabelStyle,
-        ),
-        textDirection: ui.TextDirection.ltr,
-      )..layout();
-      final desiredX = dx - xLabel.width / 2;
-      final clampedX = desiredX.clamp(
-        chartRect.left,
-        chartRect.right - xLabel.width,
-      );
-      xLabel.paint(
-        canvas,
-        Offset(
-          clampedX,
-          chartRect.bottom + 8,
-        ),
-      );
-    }
-
-    if (points.isEmpty) {
-      return;
-    }
-
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    final fillPath = Path()
-      ..moveTo(points.first.dx, chartRect.bottom)
-      ..lineTo(points.first.dx, points.first.dy);
-    for (var i = 1; i < points.length; i++) {
-      final previous = points[i - 1];
-      final current = points[i];
-      final controlPoint1 = Offset(
-        previous.dx + (current.dx - previous.dx) / 2,
-        previous.dy,
-      );
-      final controlPoint2 = Offset(
-        previous.dx + (current.dx - previous.dx) / 2,
-        current.dy,
-      );
-      path.cubicTo(
-        controlPoint1.dx,
-        controlPoint1.dy,
-        controlPoint2.dx,
-        controlPoint2.dy,
-        current.dx,
-        current.dy,
-      );
-      fillPath.cubicTo(
-        controlPoint1.dx,
-        controlPoint1.dy,
-        controlPoint2.dx,
-        controlPoint2.dy,
-        current.dx,
-        current.dy,
-      );
-    }
-    fillPath.lineTo(chartRect.right, chartRect.bottom);
-    fillPath.close();
-    canvas.drawPath(fillPath, fillPaint);
-    canvas.drawPath(path, linePaint);
-  }
-
-  String _formatBucketLabel(DateTime value) {
-    return DateFormat('HH:mm').format(value);
-  }
-
-  List<int> _buildXAxisLabelIndexes(int count) {
-    if (count <= 1) {
-      return const [0];
-    }
-    if (window.inHours >= 12) {
-      return {
-        0,
-        count ~/ 4,
-        count ~/ 2,
-        (count * 3) ~/ 4,
-        count - 1,
-      }.toList()..sort();
-    }
-    return {
-      0,
-      count ~/ 3,
-      (count * 2) ~/ 3,
-      count - 1,
-    }.toList()..sort();
-  }
-
-  @override
-  bool shouldRepaint(covariant _HashrateChartPainter oldDelegate) {
-    return oldDelegate.buckets != buckets || oldDelegate.window != window;
   }
 }

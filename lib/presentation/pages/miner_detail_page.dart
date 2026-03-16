@@ -5,6 +5,7 @@ import 'package:volcminer/domain/entities/credential.dart';
 import 'package:volcminer/domain/entities/miner_runtime.dart';
 import 'package:volcminer/domain/entities/tracked_miner.dart';
 import 'package:volcminer/presentation/localization/app_localizer.dart';
+import 'package:volcminer/presentation/localization/issue_localizer.dart';
 import 'package:volcminer/presentation/pages/pool_config_page.dart';
 import 'package:volcminer/presentation/providers/app_providers.dart';
 
@@ -170,23 +171,40 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
                     Text(
                       l10n.t(
                         'miner.issueReason',
-                        params: {'reason': currentMiner.diagnosis!.reason},
+                        params: {
+                          'reason': IssueLocalizer.reason(
+                            l10n,
+                            currentMiner.diagnosis!,
+                          ),
+                        },
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       l10n.t(
                         'miner.issueSolution',
-                        params: {'solution': currentMiner.diagnosis!.solution},
+                        params: {
+                          'solution': IssueLocalizer.solution(
+                            l10n,
+                            currentMiner.diagnosis!,
+                          ),
+                        },
                       ),
                     ),
-                    if (currentMiner.diagnosis!.secondaryReason != null) ...[
+                    if (IssueLocalizer.snippetSummary(l10n, currentMiner.diagnosis!) != null) ...[
+                      const SizedBox(height: 4),
+                      Text(IssueLocalizer.snippetSummary(l10n, currentMiner.diagnosis!)!),
+                    ],
+                    if (IssueLocalizer.secondaryReason(l10n, currentMiner.diagnosis!) != null) ...[
                       const SizedBox(height: 4),
                       Text(
                         l10n.t(
                           'miner.issueSecondary',
                           params: {
-                            'reason': currentMiner.diagnosis!.secondaryReason!,
+                            'reason': IssueLocalizer.secondaryReason(
+                              l10n,
+                              currentMiner.diagnosis!,
+                            )!,
                           },
                         ),
                       ),
@@ -455,7 +473,7 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
       SnackBar(content: Text(l10n.t('miner.refreshing'))),
     );
     try {
-      await ref.read(scanControllerProvider.notifier).refreshMinerIp(
+      final refreshed = await ref.read(scanControllerProvider.notifier).refreshMinerIp(
             ip: widget.miner.ip,
             minerCredential: credential,
             concurrency: concurrency,
@@ -466,7 +484,9 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            l10n.t('miner.refreshDone', params: {'ip': widget.miner.ip}),
+            refreshed
+                ? l10n.t('miner.refreshDone', params: {'ip': widget.miner.ip})
+                : l10n.t('miner.refreshFailed', params: {'error': 'timeout'}),
           ),
         ),
       );
@@ -602,7 +622,7 @@ class _MinerDetailPageState extends ConsumerState<MinerDetailPage> {
       return;
     }
 
-    ref.read(scanControllerProvider.notifier).removeMinerByIp(ip);
+    await ref.read(scanControllerProvider.notifier).removeMinerByIp(ip);
     if (!mounted) {
       return;
     }

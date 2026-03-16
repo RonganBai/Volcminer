@@ -7,6 +7,8 @@ class AppSettingsRecord {
   Id id = 1;
   late double fontScale;
   late bool autoRefreshEnabled;
+  late int autoScanStartMinute;
+  late int autoScanStopMinute;
   late bool showOfflineEnabled;
   late bool collectLogsEnabled;
   late int refreshIntervalSec;

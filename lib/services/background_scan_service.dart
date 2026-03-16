@@ -198,7 +198,10 @@ class BackgroundScanService {
     final intervalSeconds = settings.refreshIntervalSec <= 0
         ? 900
         : settings.refreshIntervalSec;
-    return lastAutoScanAt.add(Duration(seconds: intervalSeconds));
+    return _alignToAllowedWindow(
+      settings,
+      lastAutoScanAt.add(Duration(seconds: intervalSeconds)),
+    );
   }
 }
 
@@ -210,6 +213,7 @@ class AutoScanLogEntry {
     required this.status,
     this.onlineCount,
     this.note,
+    this.stageDurationsMs = const {},
   });
 
   final String id;
@@ -218,6 +222,7 @@ class AutoScanLogEntry {
   final String status;
   final int? onlineCount;
   final String? note;
+  final Map<String, int> stageDurationsMs;
 
   factory AutoScanLogEntry.fromJson(Map<String, dynamic> json) {
     return AutoScanLogEntry(
@@ -229,6 +234,13 @@ class AutoScanLogEntry {
       status: '${json['status'] ?? 'unknown'}',
       onlineCount: (json['onlineCount'] as num?)?.toInt(),
       note: json['note'] as String?,
+      stageDurationsMs: ((json['stageDurationsMs'] as Map?) ?? const {})
+          .map(
+            (key, value) => MapEntry(
+              '$key',
+              (value as num?)?.toInt() ?? 0,
+            ),
+          ),
     );
   }
 
@@ -240,6 +252,7 @@ class AutoScanLogEntry {
       'status': status,
       'onlineCount': onlineCount,
       'note': note,
+      'stageDurationsMs': stageDurationsMs,
     };
   }
 }
@@ -250,6 +263,9 @@ class AutoScanProgress {
     required this.scannedTargets,
     required this.totalTargets,
     this.phase = 'idle',
+    this.stageKey,
+    this.stageCurrent = 0,
+    this.stageTotal = 0,
     this.startedAt,
   });
 
@@ -257,6 +273,9 @@ class AutoScanProgress {
   final int scannedTargets;
   final int totalTargets;
   final String phase;
+  final String? stageKey;
+  final int stageCurrent;
+  final int stageTotal;
   final DateTime? startedAt;
 
   double? get ratio {
@@ -273,6 +292,9 @@ class AutoScanProgress {
       scannedTargets: (json['scannedTargets'] as num?)?.toInt() ?? 0,
       totalTargets: (json['totalTargets'] as num?)?.toInt() ?? 0,
       phase: '${json['phase'] ?? 'idle'}',
+      stageKey: json['stageKey'] as String?,
+      stageCurrent: (json['stageCurrent'] as num?)?.toInt() ?? 0,
+      stageTotal: (json['stageTotal'] as num?)?.toInt() ?? 0,
       startedAt: json['startedAt'] == null
           ? null
           : DateTime.tryParse('${json['startedAt']}'),
@@ -285,6 +307,9 @@ class AutoScanProgress {
       'scannedTargets': scannedTargets,
       'totalTargets': totalTargets,
       'phase': phase,
+      'stageKey': stageKey,
+      'stageCurrent': stageCurrent,
+      'stageTotal': stageTotal,
       'startedAt': startedAt?.toIso8601String(),
     };
   }
@@ -344,14 +369,21 @@ Future<void> _restartSchedule(ServiceInstance service) async {
       ? 900
       : context.settings.refreshIntervalSec;
 
-  final shouldRunNow = await _shouldRunImmediately(intervalSeconds);
-  await _markNextAutoScanAt(DateTime.now().add(Duration(seconds: intervalSeconds)));
+  final now = DateTime.now();
+  final nextAllowed = _alignToAllowedWindow(
+    context.settings,
+    now.add(Duration(seconds: intervalSeconds)),
+  );
+  final shouldRunNow =
+      _isWithinAutoScanWindow(context.settings, now) &&
+      await _shouldRunImmediately(intervalSeconds);
+  await _markNextAutoScanAt(nextAllowed);
   if (shouldRunNow) {
     unawaited(_runBackgroundScan(service));
   } else {
     await _showNotification(
       title: 'VolcMiner Auto Scan',
-      body: 'Next scan in ${_formatInterval(intervalSeconds)}',
+      body: 'Next scan at ${_formatClock(nextAllowed)}',
     );
   }
 
@@ -369,6 +401,9 @@ Future<void> _runBackgroundScan(ServiceInstance service) async {
   _backgroundRunPending = false;
   final startedAt = DateTime.now();
   final logId = startedAt.microsecondsSinceEpoch.toString();
+  final stageDurationsMs = <String, int>{};
+  String? lastStageKey;
+  DateTime? lastStageStartedAt;
   await _appendAutoScanLog(
     AutoScanLogEntry(
       id: logId,
@@ -402,6 +437,31 @@ Future<void> _runBackgroundScan(ServiceInstance service) async {
       await _showNotification(
         title: 'VolcMiner Auto Scan',
         body: 'Auto-refresh disabled',
+      );
+      return;
+    }
+
+    if (!_isWithinAutoScanWindow(context.settings, startedAt)) {
+      await _markNextAutoScanAt(
+        _alignToAllowedWindow(
+          context.settings,
+          startedAt.add(
+            Duration(
+              seconds: context.settings.refreshIntervalSec <= 0
+                  ? 900
+                  : context.settings.refreshIntervalSec,
+            ),
+          ),
+        ),
+      );
+      await _finishAutoScanLog(
+        logId,
+        status: 'skipped',
+        note: 'Outside auto scan time window',
+      );
+      await _showNotification(
+        title: 'VolcMiner Auto Scan',
+        body: 'Current time is outside the active auto scan window',
       );
       return;
     }
@@ -443,11 +503,29 @@ Future<void> _runBackgroundScan(ServiceInstance service) async {
         scannedTargets: 0,
         totalTargets: totalTargets,
         phase: 'scanning',
+        stageKey: null,
+        stageCurrent: 0,
+        stageTotal: 0,
         startedAt: startedAt,
       ),
     );
     final progressTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
       final snapshot = context.controller.snapshot;
+      final stageKey = snapshot.isPostProcessing
+          ? (snapshot.postProcessingStageKey ?? 'app.scan.finalizing')
+          : 'app.scan.progress';
+      final now = DateTime.now();
+      if (lastStageKey == null) {
+        lastStageKey = stageKey;
+        lastStageStartedAt = now;
+      } else if (lastStageKey != stageKey) {
+        final started = lastStageStartedAt ?? now;
+        stageDurationsMs[lastStageKey!] =
+            (stageDurationsMs[lastStageKey!] ?? 0) +
+            now.difference(started).inMilliseconds;
+        lastStageKey = stageKey;
+        lastStageStartedAt = now;
+      }
       unawaited(
         _saveAutoScanProgress(
           AutoScanProgress(
@@ -457,6 +535,9 @@ Future<void> _runBackgroundScan(ServiceInstance service) async {
                 ? snapshot.totalTargets
                 : totalTargets,
             phase: snapshot.isPostProcessing ? 'finalizing' : 'scanning',
+            stageKey: snapshot.postProcessingStageKey,
+            stageCurrent: snapshot.postProcessingCurrent,
+            stageTotal: snapshot.postProcessingTotal,
             startedAt: startedAt,
           ),
         ),
@@ -492,6 +573,11 @@ Future<void> _runBackgroundScan(ServiceInstance service) async {
         logId,
         status: 'success',
         onlineCount: onlineCount,
+        stageDurationsMs: _finalizeStageDurations(
+          stageDurationsMs: stageDurationsMs,
+          lastStageKey: lastStageKey,
+          lastStageStartedAt: lastStageStartedAt,
+        ),
       );
       await _saveAutoScanProgress(
         AutoScanProgress(
@@ -503,6 +589,9 @@ Future<void> _runBackgroundScan(ServiceInstance service) async {
               ? context.controller.snapshot.totalTargets
               : totalTargets,
           phase: 'finalizing',
+          stageKey: context.controller.snapshot.postProcessingStageKey,
+          stageCurrent: context.controller.snapshot.postProcessingCurrent,
+          stageTotal: context.controller.snapshot.postProcessingTotal,
           startedAt: startedAt,
         ),
       );
@@ -517,6 +606,9 @@ Future<void> _runBackgroundScan(ServiceInstance service) async {
               ? context.controller.snapshot.totalTargets
               : totalTargets,
           phase: 'idle',
+          stageKey: null,
+          stageCurrent: 0,
+          stageTotal: 0,
           startedAt: startedAt,
         ),
       );
@@ -536,6 +628,11 @@ Future<void> _runBackgroundScan(ServiceInstance service) async {
       logId,
       status: 'failed',
       note: '$e',
+      stageDurationsMs: _finalizeStageDurations(
+        stageDurationsMs: stageDurationsMs,
+        lastStageKey: lastStageKey,
+        lastStageStartedAt: lastStageStartedAt,
+      ),
     );
     await _saveAutoScanProgress(
       const AutoScanProgress(
@@ -543,6 +640,9 @@ Future<void> _runBackgroundScan(ServiceInstance service) async {
         scannedTargets: 0,
         totalTargets: 0,
         phase: 'idle',
+        stageKey: null,
+        stageCurrent: 0,
+        stageTotal: 0,
       ),
     );
     await _showNotification(
@@ -630,6 +730,54 @@ Future<void> _markNextAutoScanAt(DateTime value) async {
   await prefs.setString(_nextAutoScanAtKey, value.toIso8601String());
 }
 
+bool _isWithinAutoScanWindow(AppSettings settings, DateTime when) {
+  final minute = when.hour * 60 + when.minute;
+  final start = settings.autoScanStartMinute.clamp(0, 1439);
+  final stop = settings.autoScanStopMinute.clamp(0, 1439);
+  if (start == stop) {
+    return true;
+  }
+  if (start < stop) {
+    return minute >= start && minute <= stop;
+  }
+  return minute >= start || minute <= stop;
+}
+
+DateTime _alignToAllowedWindow(AppSettings settings, DateTime candidate) {
+  if (_isWithinAutoScanWindow(settings, candidate)) {
+    return candidate;
+  }
+  final start = settings.autoScanStartMinute.clamp(0, 1439);
+  final candidateMinute = candidate.hour * 60 + candidate.minute;
+  DateTime next = DateTime(
+    candidate.year,
+    candidate.month,
+    candidate.day,
+    start ~/ 60,
+    start % 60,
+  );
+  if (settings.autoScanStartMinute == settings.autoScanStopMinute) {
+    return candidate;
+  }
+  if (settings.autoScanStartMinute < settings.autoScanStopMinute) {
+    if (candidateMinute > start) {
+      next = next.add(const Duration(days: 1));
+    }
+    return next;
+  }
+  if (candidateMinute > settings.autoScanStopMinute &&
+      candidateMinute < settings.autoScanStartMinute) {
+    return next;
+  }
+  return candidate;
+}
+
+String _formatClock(DateTime value) {
+  final hour = value.hour.toString().padLeft(2, '0');
+  final minute = value.minute.toString().padLeft(2, '0');
+  return '$hour:$minute';
+}
+
 Future<void> _appendAutoScanLog(AutoScanLogEntry entry) async {
   final prefs = await SharedPreferences.getInstance();
   final current = await BackgroundScanService.getAutoScanLogs();
@@ -648,6 +796,7 @@ Future<void> _finishAutoScanLog(
   required String status,
   int? onlineCount,
   String? note,
+  Map<String, int>? stageDurationsMs,
 }) async {
   final prefs = await SharedPreferences.getInstance();
   final current = await BackgroundScanService.getAutoScanLogs();
@@ -661,6 +810,7 @@ Future<void> _finishAutoScanLog(
                 status: status,
                 onlineCount: onlineCount ?? log.onlineCount,
                 note: note,
+                stageDurationsMs: stageDurationsMs ?? log.stageDurationsMs,
               )
             : log,
       )
@@ -669,6 +819,20 @@ Future<void> _finishAutoScanLog(
     _autoScanLogsKey,
     jsonEncode(updated.map((log) => log.toJson()).toList(growable: false)),
   );
+}
+
+Map<String, int> _finalizeStageDurations({
+  required Map<String, int> stageDurationsMs,
+  required String? lastStageKey,
+  required DateTime? lastStageStartedAt,
+}) {
+  final result = <String, int>{...stageDurationsMs};
+  if (lastStageKey != null && lastStageStartedAt != null) {
+    result[lastStageKey] =
+        (result[lastStageKey] ?? 0) +
+        DateTime.now().difference(lastStageStartedAt).inMilliseconds;
+  }
+  return result;
 }
 
 Future<void> _saveAutoScanProgress(AutoScanProgress progress) async {
@@ -721,16 +885,6 @@ Future<void> _showNotification({
       ),
     ),
   );
-}
-
-String _formatInterval(int seconds) {
-  if (seconds % 3600 == 0) {
-    return '${seconds ~/ 3600}h';
-  }
-  if (seconds % 60 == 0) {
-    return '${seconds ~/ 60}m';
-  }
-  return '${seconds}s';
 }
 
 class _BackgroundContext {

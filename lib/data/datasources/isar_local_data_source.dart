@@ -69,9 +69,16 @@ class IsarLocalDataSource {
     if (row == null) {
       return AppSettings.defaults;
     }
+    final startMinute = row.autoScanStartMinute.clamp(0, 1439);
+    var stopMinute = row.autoScanStopMinute.clamp(0, 1439);
+    if (startMinute == 0 && stopMinute == 0) {
+      stopMinute = 1439;
+    }
     return AppSettings(
       fontScale: row.fontScale,
       autoRefreshEnabled: row.autoRefreshEnabled,
+      autoScanStartMinute: startMinute,
+      autoScanStopMinute: stopMinute,
       showOfflineEnabled: row.showOfflineEnabled,
       collectLogsEnabled: row.collectLogsEnabled,
       refreshIntervalSec: row.refreshIntervalSec,
@@ -86,6 +93,8 @@ class IsarLocalDataSource {
       ..id = 1
       ..fontScale = settings.fontScale
       ..autoRefreshEnabled = settings.autoRefreshEnabled
+      ..autoScanStartMinute = settings.autoScanStartMinute
+      ..autoScanStopMinute = settings.autoScanStopMinute
       ..showOfflineEnabled = settings.showOfflineEnabled
       ..collectLogsEnabled = settings.collectLogsEnabled
       ..refreshIntervalSec = settings.refreshIntervalSec
@@ -141,17 +150,19 @@ class IsarLocalDataSource {
     required List<ScanSegmentRecord> segments,
     required Set<String> ledActiveIps,
     required Map<String, Set<String>> knownMinerIpsByScope,
+    required Set<String> ignoredMinerIps,
     required List<HashrateSample> hashrateHistory,
     DateTime? lastScanAt,
   }) async {
     final payload = {
-      'version': 3,
+      'version': 4,
       'lastScanAt': lastScanAt?.toIso8601String(),
       'ledActiveIps': ledActiveIps.toList(growable: false),
       'knownMinerIpsByScope': {
         for (final entry in knownMinerIpsByScope.entries)
           entry.key: entry.value.toList(growable: false),
       },
+      'ignoredMinerIps': ignoredMinerIps.toList(growable: false),
       'hashrateHistory': hashrateHistory
           .map(
             (sample) => {
@@ -200,6 +211,9 @@ class IsarLocalDataSource {
         }
       }
     }
+    final ignoredMinerIps = ((raw['ignoredMinerIps'] as List?) ?? const [])
+        .map((entry) => '$entry')
+        .toSet();
     final hashrateHistory = ((raw['hashrateHistory'] as List?) ?? const [])
         .whereType<Map>()
         .map((entry) {
@@ -217,6 +231,7 @@ class IsarLocalDataSource {
       segments: segments,
       ledActiveIps: ledActiveIps,
       knownMinerIpsByScope: knownMinerIpsByScope,
+      ignoredMinerIps: ignoredMinerIps,
       hashrateHistory: hashrateHistory,
       lastScanAt: lastScanAtRaw == null ? null : DateTime.tryParse(lastScanAtRaw),
     );
@@ -248,6 +263,8 @@ class IsarLocalDataSource {
       'ip': miner.ip,
       'lastSeenAt': miner.lastSeenAt.toIso8601String(),
       'missedScans': miner.missedScans,
+      'offlineEventCount': miner.offlineEventCount,
+      'stableOnlineSince': miner.stableOnlineSince?.toIso8601String(),
       'clearRefineAttempted': miner.clearRefineAttempted,
       'offlineSince': miner.offlineSince?.toIso8601String(),
       'offlineScanMisses': miner.offlineScanMisses,
@@ -265,6 +282,10 @@ class IsarLocalDataSource {
       lastSeenAt:
           DateTime.tryParse('${json['lastSeenAt'] ?? ''}') ?? DateTime.now(),
       missedScans: (json['missedScans'] as num?)?.toInt() ?? 0,
+      offlineEventCount: (json['offlineEventCount'] as num?)?.toInt() ?? 0,
+      stableOnlineSince: json['stableOnlineSince'] == null
+          ? null
+          : DateTime.tryParse('${json['stableOnlineSince']}'),
       clearRefineAttempted: json['clearRefineAttempted'] == true,
       offlineSince: json['offlineSince'] == null
           ? null

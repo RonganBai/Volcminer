@@ -41,6 +41,25 @@ class _KnownMinerPageState extends ConsumerState<KnownMinerPage> {
       appBar: AppBar(
         title: Text(l10n.t('app.knownMiners.title')),
         actions: [
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '${knownIps.length}',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ),
           IconButton(
             onPressed: () => _showAddKnownIpDialog(context, l10n, knownIps.toSet()),
             icon: const Icon(Icons.add),

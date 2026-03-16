@@ -17,22 +17,46 @@ const ScanViewRecordSchema = CollectionSchema(
   name: r'ScanViewRecord',
   id: -3735036214895989184,
   properties: {
-    r'cidr': PropertySchema(id: 0, name: r'cidr', type: IsarType.string),
+    r'cidr': PropertySchema(
+      id: 0,
+      name: r'cidr',
+      type: IsarType.string,
+    ),
     r'createdAt': PropertySchema(
       id: 1,
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
-    r'endIp': PropertySchema(id: 2, name: r'endIp', type: IsarType.string),
-    r'name': PropertySchema(id: 3, name: r'name', type: IsarType.string),
-    r'startIp': PropertySchema(id: 4, name: r'startIp', type: IsarType.string),
-    r'tags': PropertySchema(id: 5, name: r'tags', type: IsarType.stringList),
+    r'endIp': PropertySchema(
+      id: 2,
+      name: r'endIp',
+      type: IsarType.string,
+    ),
+    r'name': PropertySchema(
+      id: 3,
+      name: r'name',
+      type: IsarType.string,
+    ),
+    r'startIp': PropertySchema(
+      id: 4,
+      name: r'startIp',
+      type: IsarType.string,
+    ),
+    r'tags': PropertySchema(
+      id: 5,
+      name: r'tags',
+      type: IsarType.stringList,
+    ),
     r'updatedAt': PropertySchema(
       id: 6,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
-    r'viewId': PropertySchema(id: 7, name: r'viewId', type: IsarType.string),
+    r'viewId': PropertySchema(
+      id: 7,
+      name: r'viewId',
+      type: IsarType.string,
+    )
   },
   estimateSize: _scanViewRecordEstimateSize,
   serialize: _scanViewRecordSerialize,
@@ -50,9 +74,9 @@ const ScanViewRecordSchema = CollectionSchema(
           name: r'viewId',
           type: IndexType.hash,
           caseSensitive: true,
-        ),
+        )
       ],
-    ),
+    )
   },
   links: {},
   embeddedSchemas: {},
@@ -155,10 +179,7 @@ List<IsarLinkBase<dynamic>> _scanViewRecordGetLinks(ScanViewRecord object) {
 }
 
 void _scanViewRecordAttach(
-  IsarCollection<dynamic> col,
-  Id id,
-  ScanViewRecord object,
-) {
+    IsarCollection<dynamic> col, Id id, ScanViewRecord object) {
   object.id = id;
 }
 
@@ -211,10 +232,8 @@ extension ScanViewRecordByIndex on IsarCollection<ScanViewRecord> {
     return putAllByIndex(r'viewId', objects);
   }
 
-  List<Id> putAllByViewIdSync(
-    List<ScanViewRecord> objects, {
-    bool saveLinks = true,
-  }) {
+  List<Id> putAllByViewIdSync(List<ScanViewRecord> objects,
+      {bool saveLinks = true}) {
     return putAllByIndexSync(r'viewId', objects, saveLinks: saveLinks);
   }
 }
@@ -231,16 +250,17 @@ extension ScanViewRecordQueryWhereSort
 extension ScanViewRecordQueryWhere
     on QueryBuilder<ScanViewRecord, ScanViewRecord, QWhereClause> {
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterWhereClause> idEqualTo(
-    Id id,
-  ) {
+      Id id) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
+      return query.addWhereClause(IdWhereClause.between(
+        lower: id,
+        upper: id,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterWhereClause> idNotEqualTo(
-    Id id,
-  ) {
+      Id id) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
@@ -263,9 +283,8 @@ extension ScanViewRecordQueryWhere
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterWhereClause> idGreaterThan(
-    Id id, {
-    bool include = false,
-  }) {
+      Id id,
+      {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -274,9 +293,8 @@ extension ScanViewRecordQueryWhere
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterWhereClause> idLessThan(
-    Id id, {
-    bool include = false,
-  }) {
+      Id id,
+      {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -291,66 +309,56 @@ extension ScanViewRecordQueryWhere
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(
-        IdWhereClause.between(
-          lower: lowerId,
-          includeLower: includeLower,
-          upper: upperId,
-          includeUpper: includeUpper,
-        ),
-      );
+      return query.addWhereClause(IdWhereClause.between(
+        lower: lowerId,
+        includeLower: includeLower,
+        upper: upperId,
+        includeUpper: includeUpper,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterWhereClause> viewIdEqualTo(
-    String viewId,
-  ) {
+      String viewId) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(
-        IndexWhereClause.equalTo(indexName: r'viewId', value: [viewId]),
-      );
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'viewId',
+        value: [viewId],
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterWhereClause>
-  viewIdNotEqualTo(String viewId) {
+      viewIdNotEqualTo(String viewId) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(
-              IndexWhereClause.between(
-                indexName: r'viewId',
-                lower: [],
-                upper: [viewId],
-                includeUpper: false,
-              ),
-            )
-            .addWhereClause(
-              IndexWhereClause.between(
-                indexName: r'viewId',
-                lower: [viewId],
-                includeLower: false,
-                upper: [],
-              ),
-            );
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'viewId',
+              lower: [],
+              upper: [viewId],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'viewId',
+              lower: [viewId],
+              includeLower: false,
+              upper: [],
+            ));
       } else {
         return query
-            .addWhereClause(
-              IndexWhereClause.between(
-                indexName: r'viewId',
-                lower: [viewId],
-                includeLower: false,
-                upper: [],
-              ),
-            )
-            .addWhereClause(
-              IndexWhereClause.between(
-                indexName: r'viewId',
-                lower: [],
-                upper: [viewId],
-                includeUpper: false,
-              ),
-            );
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'viewId',
+              lower: [viewId],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'viewId',
+              lower: [],
+              upper: [viewId],
+              includeUpper: false,
+            ));
       }
     });
   }
@@ -359,56 +367,53 @@ extension ScanViewRecordQueryWhere
 extension ScanViewRecordQueryFilter
     on QueryBuilder<ScanViewRecord, ScanViewRecord, QFilterCondition> {
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  cidrEqualTo(String value, {bool caseSensitive = true}) {
+      cidrEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(
-          property: r'cidr',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'cidr',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  cidrGreaterThan(
+      cidrGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'cidr',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'cidr',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  cidrLessThan(
+      cidrLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'cidr',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'cidr',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  cidrBetween(
+      cidrBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -416,195 +421,191 @@ extension ScanViewRecordQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'cidr',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'cidr',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  cidrStartsWith(String value, {bool caseSensitive = true}) {
+      cidrStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.startsWith(
-          property: r'cidr',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'cidr',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  cidrEndsWith(String value, {bool caseSensitive = true}) {
+      cidrEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.endsWith(
-          property: r'cidr',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'cidr',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  cidrContains(String value, {bool caseSensitive = true}) {
+      cidrContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.contains(
-          property: r'cidr',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'cidr',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  cidrMatches(String pattern, {bool caseSensitive = true}) {
+      cidrMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.matches(
-          property: r'cidr',
-          wildcard: pattern,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'cidr',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  cidrIsEmpty() {
+      cidrIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'cidr', value: ''),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'cidr',
+        value: '',
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  cidrIsNotEmpty() {
+      cidrIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(property: r'cidr', value: ''),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'cidr',
+        value: '',
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  createdAtEqualTo(DateTime value) {
+      createdAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'createdAt', value: value),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'createdAt',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  createdAtGreaterThan(DateTime value, {bool include = false}) {
+      createdAtGreaterThan(
+    DateTime value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'createdAt',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'createdAt',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  createdAtLessThan(DateTime value, {bool include = false}) {
+      createdAtLessThan(
+    DateTime value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'createdAt',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'createdAt',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  createdAtBetween(
+      createdAtBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'createdAt',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'createdAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  endIpEqualTo(String value, {bool caseSensitive = true}) {
+      endIpEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(
-          property: r'endIp',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'endIp',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  endIpGreaterThan(
+      endIpGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'endIp',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'endIp',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  endIpLessThan(
+      endIpLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'endIp',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'endIp',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  endIpBetween(
+      endIpBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -612,122 +613,122 @@ extension ScanViewRecordQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'endIp',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'endIp',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  endIpStartsWith(String value, {bool caseSensitive = true}) {
+      endIpStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.startsWith(
-          property: r'endIp',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'endIp',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  endIpEndsWith(String value, {bool caseSensitive = true}) {
+      endIpEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.endsWith(
-          property: r'endIp',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'endIp',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  endIpContains(String value, {bool caseSensitive = true}) {
+      endIpContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.contains(
-          property: r'endIp',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'endIp',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  endIpMatches(String pattern, {bool caseSensitive = true}) {
+      endIpMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.matches(
-          property: r'endIp',
-          wildcard: pattern,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'endIp',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  endIpIsEmpty() {
+      endIpIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'endIp', value: ''),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'endIp',
+        value: '',
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  endIpIsNotEmpty() {
+      endIpIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(property: r'endIp', value: ''),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'endIp',
+        value: '',
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition> idEqualTo(
-    Id value,
-  ) {
+      Id value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'id', value: value),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'id',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  idGreaterThan(Id value, {bool include = false}) {
+      idGreaterThan(
+    Id value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'id',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'id',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  idLessThan(Id value, {bool include = false}) {
+      idLessThan(
+    Id value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'id',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'id',
+        value: value,
+      ));
     });
   }
 
@@ -738,69 +739,64 @@ extension ScanViewRecordQueryFilter
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'id',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'id',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  nameEqualTo(String value, {bool caseSensitive = true}) {
+      nameEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(
-          property: r'name',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'name',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  nameGreaterThan(
+      nameGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'name',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'name',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  nameLessThan(
+      nameLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'name',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'name',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  nameBetween(
+      nameBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -808,140 +804,135 @@ extension ScanViewRecordQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'name',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'name',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  nameStartsWith(String value, {bool caseSensitive = true}) {
+      nameStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.startsWith(
-          property: r'name',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'name',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  nameEndsWith(String value, {bool caseSensitive = true}) {
+      nameEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.endsWith(
-          property: r'name',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'name',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  nameContains(String value, {bool caseSensitive = true}) {
+      nameContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.contains(
-          property: r'name',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'name',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  nameMatches(String pattern, {bool caseSensitive = true}) {
+      nameMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.matches(
-          property: r'name',
-          wildcard: pattern,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'name',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  nameIsEmpty() {
+      nameIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'name', value: ''),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'name',
+        value: '',
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  nameIsNotEmpty() {
+      nameIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(property: r'name', value: ''),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'name',
+        value: '',
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  startIpEqualTo(String value, {bool caseSensitive = true}) {
+      startIpEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(
-          property: r'startIp',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'startIp',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  startIpGreaterThan(
+      startIpGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'startIp',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'startIp',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  startIpLessThan(
+      startIpLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'startIp',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'startIp',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  startIpBetween(
+      startIpBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -949,140 +940,135 @@ extension ScanViewRecordQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'startIp',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'startIp',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  startIpStartsWith(String value, {bool caseSensitive = true}) {
+      startIpStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.startsWith(
-          property: r'startIp',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'startIp',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  startIpEndsWith(String value, {bool caseSensitive = true}) {
+      startIpEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.endsWith(
-          property: r'startIp',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'startIp',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  startIpContains(String value, {bool caseSensitive = true}) {
+      startIpContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.contains(
-          property: r'startIp',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'startIp',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  startIpMatches(String pattern, {bool caseSensitive = true}) {
+      startIpMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.matches(
-          property: r'startIp',
-          wildcard: pattern,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'startIp',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  startIpIsEmpty() {
+      startIpIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'startIp', value: ''),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'startIp',
+        value: '',
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  startIpIsNotEmpty() {
+      startIpIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(property: r'startIp', value: ''),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'startIp',
+        value: '',
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  tagsElementEqualTo(String value, {bool caseSensitive = true}) {
+      tagsElementEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(
-          property: r'tags',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'tags',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  tagsElementGreaterThan(
+      tagsElementGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'tags',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'tags',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  tagsElementLessThan(
+      tagsElementLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'tags',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'tags',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  tagsElementBetween(
+      tagsElementBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -1090,126 +1076,160 @@ extension ScanViewRecordQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'tags',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-          caseSensitive: caseSensitive,
-        ),
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'tags',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
+      tagsElementStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'tags',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
+      tagsElementEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'tags',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
+      tagsElementContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'tags',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
+      tagsElementMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'tags',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
+      tagsElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'tags',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
+      tagsElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'tags',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
+      tagsLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'tags',
+        length,
+        true,
+        length,
+        true,
       );
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  tagsElementStartsWith(String value, {bool caseSensitive = true}) {
+      tagsIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.startsWith(
-          property: r'tags',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
+      return query.listLength(
+        r'tags',
+        0,
+        true,
+        0,
+        true,
       );
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  tagsElementEndsWith(String value, {bool caseSensitive = true}) {
+      tagsIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.endsWith(
-          property: r'tags',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
+      return query.listLength(
+        r'tags',
+        0,
+        false,
+        999999,
+        true,
       );
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  tagsElementContains(String value, {bool caseSensitive = true}) {
+      tagsLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.contains(
-          property: r'tags',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
+      return query.listLength(
+        r'tags',
+        0,
+        true,
+        length,
+        include,
       );
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  tagsElementMatches(String pattern, {bool caseSensitive = true}) {
+      tagsLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.matches(
-          property: r'tags',
-          wildcard: pattern,
-          caseSensitive: caseSensitive,
-        ),
+      return query.listLength(
+        r'tags',
+        length,
+        include,
+        999999,
+        true,
       );
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  tagsElementIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'tags', value: ''),
-      );
-    });
-  }
-
-  QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  tagsElementIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(property: r'tags', value: ''),
-      );
-    });
-  }
-
-  QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  tagsLengthEqualTo(int length) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(r'tags', length, true, length, true);
-    });
-  }
-
-  QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  tagsIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(r'tags', 0, true, 0, true);
-    });
-  }
-
-  QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  tagsIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(r'tags', 0, false, 999999, true);
-    });
-  }
-
-  QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  tagsLengthLessThan(int length, {bool include = false}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(r'tags', 0, true, length, include);
-    });
-  }
-
-  QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  tagsLengthGreaterThan(int length, {bool include = false}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.listLength(r'tags', length, include, 999999, true);
-    });
-  }
-
-  QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  tagsLengthBetween(
+      tagsLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -1227,111 +1247,109 @@ extension ScanViewRecordQueryFilter
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  updatedAtEqualTo(DateTime value) {
+      updatedAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'updatedAt', value: value),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'updatedAt',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  updatedAtGreaterThan(DateTime value, {bool include = false}) {
+      updatedAtGreaterThan(
+    DateTime value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'updatedAt',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'updatedAt',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  updatedAtLessThan(DateTime value, {bool include = false}) {
+      updatedAtLessThan(
+    DateTime value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'updatedAt',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'updatedAt',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  updatedAtBetween(
+      updatedAtBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'updatedAt',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'updatedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  viewIdEqualTo(String value, {bool caseSensitive = true}) {
+      viewIdEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(
-          property: r'viewId',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'viewId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  viewIdGreaterThan(
+      viewIdGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'viewId',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'viewId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  viewIdLessThan(
+      viewIdLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'viewId',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'viewId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  viewIdBetween(
+      viewIdBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -1339,86 +1357,84 @@ extension ScanViewRecordQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'viewId',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'viewId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  viewIdStartsWith(String value, {bool caseSensitive = true}) {
+      viewIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.startsWith(
-          property: r'viewId',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'viewId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  viewIdEndsWith(String value, {bool caseSensitive = true}) {
+      viewIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.endsWith(
-          property: r'viewId',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'viewId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  viewIdContains(String value, {bool caseSensitive = true}) {
+      viewIdContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.contains(
-          property: r'viewId',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'viewId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  viewIdMatches(String pattern, {bool caseSensitive = true}) {
+      viewIdMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.matches(
-          property: r'viewId',
-          wildcard: pattern,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'viewId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  viewIdIsEmpty() {
+      viewIdIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'viewId', value: ''),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'viewId',
+        value: '',
+      ));
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterFilterCondition>
-  viewIdIsNotEmpty() {
+      viewIdIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(property: r'viewId', value: ''),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'viewId',
+        value: '',
+      ));
     });
   }
 }
@@ -1450,7 +1466,7 @@ extension ScanViewRecordQuerySortBy
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterSortBy>
-  sortByCreatedAtDesc() {
+      sortByCreatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.desc);
     });
@@ -1487,7 +1503,7 @@ extension ScanViewRecordQuerySortBy
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterSortBy>
-  sortByStartIpDesc() {
+      sortByStartIpDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'startIp', Sort.desc);
     });
@@ -1500,7 +1516,7 @@ extension ScanViewRecordQuerySortBy
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterSortBy>
-  sortByUpdatedAtDesc() {
+      sortByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
@@ -1513,7 +1529,7 @@ extension ScanViewRecordQuerySortBy
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterSortBy>
-  sortByViewIdDesc() {
+      sortByViewIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'viewId', Sort.desc);
     });
@@ -1541,7 +1557,7 @@ extension ScanViewRecordQuerySortThenBy
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterSortBy>
-  thenByCreatedAtDesc() {
+      thenByCreatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.desc);
     });
@@ -1590,7 +1606,7 @@ extension ScanViewRecordQuerySortThenBy
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterSortBy>
-  thenByStartIpDesc() {
+      thenByStartIpDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'startIp', Sort.desc);
     });
@@ -1603,7 +1619,7 @@ extension ScanViewRecordQuerySortThenBy
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterSortBy>
-  thenByUpdatedAtDesc() {
+      thenByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
@@ -1616,7 +1632,7 @@ extension ScanViewRecordQuerySortThenBy
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QAfterSortBy>
-  thenByViewIdDesc() {
+      thenByViewIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'viewId', Sort.desc);
     });
@@ -1625,40 +1641,36 @@ extension ScanViewRecordQuerySortThenBy
 
 extension ScanViewRecordQueryWhereDistinct
     on QueryBuilder<ScanViewRecord, ScanViewRecord, QDistinct> {
-  QueryBuilder<ScanViewRecord, ScanViewRecord, QDistinct> distinctByCidr({
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<ScanViewRecord, ScanViewRecord, QDistinct> distinctByCidr(
+      {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'cidr', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QDistinct>
-  distinctByCreatedAt() {
+      distinctByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'createdAt');
     });
   }
 
-  QueryBuilder<ScanViewRecord, ScanViewRecord, QDistinct> distinctByEndIp({
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<ScanViewRecord, ScanViewRecord, QDistinct> distinctByEndIp(
+      {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'endIp', caseSensitive: caseSensitive);
     });
   }
 
-  QueryBuilder<ScanViewRecord, ScanViewRecord, QDistinct> distinctByName({
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<ScanViewRecord, ScanViewRecord, QDistinct> distinctByName(
+      {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'name', caseSensitive: caseSensitive);
     });
   }
 
-  QueryBuilder<ScanViewRecord, ScanViewRecord, QDistinct> distinctByStartIp({
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<ScanViewRecord, ScanViewRecord, QDistinct> distinctByStartIp(
+      {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'startIp', caseSensitive: caseSensitive);
     });
@@ -1671,15 +1683,14 @@ extension ScanViewRecordQueryWhereDistinct
   }
 
   QueryBuilder<ScanViewRecord, ScanViewRecord, QDistinct>
-  distinctByUpdatedAt() {
+      distinctByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'updatedAt');
     });
   }
 
-  QueryBuilder<ScanViewRecord, ScanViewRecord, QDistinct> distinctByViewId({
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<ScanViewRecord, ScanViewRecord, QDistinct> distinctByViewId(
+      {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'viewId', caseSensitive: caseSensitive);
     });

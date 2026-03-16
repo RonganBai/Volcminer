@@ -89,7 +89,10 @@ class _HomeShellState extends ConsumerState<HomeShell> with WidgetsBindingObserv
                     children: [
                       Text(
                         scanState.isPostProcessing
-                            ? l10n.t('app.scan.finalizing')
+                            ? l10n.t(
+                                scanState.postProcessingStageKey ??
+                                    'app.scan.finalizing',
+                              )
                             : scanState.scanRunState == ScanRunState.paused
                                 ? l10n.t(
                                     'app.scan.paused',
@@ -113,12 +116,28 @@ class _HomeShellState extends ConsumerState<HomeShell> with WidgetsBindingObserv
                       const SizedBox(height: 8),
                       LinearProgressIndicator(
                         value: scanState.isPostProcessing
-                            ? null
+                            ? (scanState.postProcessingTotal > 0
+                                ? (scanState.postProcessingCurrent /
+                                        scanState.postProcessingTotal)
+                                    .clamp(0, 1)
+                                    .toDouble()
+                                : 0)
                             : scanState.totalTargets > 0
                                 ? scanState.scannedTargets /
                                     scanState.totalTargets
                                 : null,
                       ),
+                      if (scanState.isPostProcessing) ...[
+                        const SizedBox(height: 6),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            scanState.postProcessingTotal > 0
+                                ? '${scanState.postProcessingCurrent}/${scanState.postProcessingTotal}  ${(((scanState.postProcessingCurrent / scanState.postProcessingTotal) * 100)).round()}%'
+                                : '0/0  0%',
+                          ),
+                        ),
+                      ],
                       if (scanState.isManualScanActive &&
                           !scanState.isPostProcessing) ...[
                         const SizedBox(height: 8),
@@ -205,15 +224,6 @@ class _HomeShellState extends ConsumerState<HomeShell> with WidgetsBindingObserv
             icon: const Icon(Icons.qr_code_scanner),
             tooltip: l10n.t('app.scanner.open'),
           ),
-          PopupMenuButton<int>(
-            onSelected: (value) => setState(() => _index = value),
-            itemBuilder: (context) => [
-              PopupMenuItem(value: 0, child: Text(l10n.t('app.nav.dashboard'))),
-              PopupMenuItem(value: 1, child: Text(l10n.t('app.nav.scan'))),
-              PopupMenuItem(value: 2, child: Text(l10n.t('app.nav.results'))),
-              PopupMenuItem(value: 3, child: Text(l10n.t('app.nav.settings'))),
-            ],
-          ),
         ],
       ),
       body: pages[_index],
@@ -290,6 +300,8 @@ class _HomeShellState extends ConsumerState<HomeShell> with WidgetsBindingObserv
     final signature = [
       settings.autoRefreshEnabled,
       settings.refreshIntervalSec,
+      settings.autoScanStartMinute,
+      settings.autoScanStopMinute,
       settings.scanConcurrency,
       settings.minerUsername,
       settingsState.minerAuthPassword,

@@ -11,6 +11,10 @@ class AppStrings {
     'app.scan.progress': 'Scanning {current}/{total}',
     'app.scan.paused': 'Scan paused at {current}/{total}',
     'app.scan.finalizing': 'Finalizing scan results...',
+    'app.scan.finalizing.logs': 'Analyzing zero-hash miner logs...',
+    'app.scan.finalizing.clearRefine': 'Clearing refine on unresponsive miners...',
+    'app.scan.finalizing.recheck': 'Rechecking miners waiting for recovery...',
+    'app.scan.finalizing.persist': 'Saving scan results...',
     'app.scanner.open': 'Open Scanner',
     'app.autoScanLog.open': 'Auto Scan Log',
     'app.knownMiners.open': 'Known Miners',
@@ -28,6 +32,7 @@ class AppStrings {
     'app.autoScanLog.startedAt': 'Start: {time}',
     'app.autoScanLog.finishedAt': 'End: {time}',
     'app.autoScanLog.onlineCount': 'Online miners: {count}',
+    'app.autoScanLog.stageDurations': 'Stage durations',
     'app.autoScanLog.status.success': 'Completed',
     'app.autoScanLog.status.failed': 'Failed',
     'app.autoScanLog.status.skipped': 'Skipped',
@@ -40,11 +45,13 @@ class AppStrings {
     'overview.onlineMiners': 'Online Miners',
     'overview.unresponsiveMiners': 'Unresponsive Miners',
     'overview.offlineMiners': 'Offline Miners',
-    'overview.retiredMiners': 'Retired Miners',
+    'overview.retiredMiners': 'Pending Retire',
+    'overview.abnormalMiners': 'Abnormal Miners',
     'overview.allOnlineTitle': 'All Online Miners',
     'overview.allUnresponsiveTitle': 'All Unresponsive Miners',
     'overview.allOfflineTitle': 'All Offline Miners',
-    'overview.allRetiredTitle': 'All Retired Miners',
+    'overview.allRetiredTitle': 'All Pending Retire',
+    'overview.allAbnormalTitle': 'All Abnormal Miners',
     'overview.emptyCategory': 'No miners in this category.',
     'overview.scope': 'IP Block: {scope}',
     'overview.totalHashrate': 'Total Hashrate',
@@ -68,6 +75,34 @@ class AppStrings {
     'overview.averageWindow1h': '1H',
     'overview.averageWindow12h': '12H',
     'overview.hourlyHashrateChart': 'Hourly Average Hashrate',
+    'overview.hashrateTrendChart': 'Hashrate Trend',
+    'issue.reason.POWER_SUPPLY_FAULT':
+        'The power supply is damaged and output voltage is far below the target range.',
+    'issue.solution.POWER_SUPPLY_FAULT':
+        'Replace the power supply and inspect the output cables and input power before powering on again.',
+    'issue.reason.FAN_ERROR':
+        'A fan failure or abnormal fan speed was detected.',
+    'issue.solution.FAN_ERROR':
+        'Check fan wiring, fan power, and fan connectors. Replace the failed fan and confirm all fans return to normal speed.',
+    'issue.reason.CHAIN_BREAK':
+        'A hash board chain communication or ASIC detection error was detected.',
+    'issue.solution.CHAIN_BREAK':
+        'Inspect the affected hash board, ribbon cable, and connector. If fan errors happened first, repair cooling before replacing the hash board.',
+    'issue.reason.OVER_MAX_TEMP':
+        'Miner temperature exceeded the safe threshold.',
+    'issue.solution.OVER_MAX_TEMP':
+        'Improve airflow, clean dust, and verify the fan speed and ambient temperature.',
+    'issue.reason.AUTHEN_START_WAIT':
+        'The miner restarted authentication after an error and needs a short recovery window.',
+    'issue.solution.AUTHEN_START_WAIT':
+        'Keep the miner under observation until the next auto scan, then confirm whether the hashrate has recovered.',
+    'issue.reason.ERRORMSG':
+        'Miner reported an unspecified kernel or hardware error.',
+    'issue.solution.ERRORMSG':
+        'Open the miner detail page and inspect the full kernel log. Check power, fan speed, and hash board status.',
+    'issue.reason.UNKNOWN_ZERO_HASH': 'Unknown zero-hash issue',
+    'issue.solution.UNKNOWN_ZERO_HASH':
+        'Inspect the miner log, fan speed, temperature, and pool status.',
     'overview.chartEmpty': 'Not enough scan history yet.',
     'overview.chartAxisTime': 'Time',
     'overview.chartAxisHashrate': 'Hashrate (TH/s)',
@@ -84,6 +119,10 @@ class AppStrings {
     'settings.language.en': 'English',
     'settings.language.zh': 'Chinese',
     'settings.fontScale': 'Font Scale',
+    'settings.choose': 'Choose',
+    'settings.autoScanWindow': 'Auto Scan Window',
+    'settings.autoScanStart': 'Start Time',
+    'settings.autoScanStop': 'Stop Time',
     'settings.autoRefresh': 'Auto Refresh',
     'settings.showOffline': 'Show Offline Miners',
     'settings.collectLogs': 'Collect Logs',
@@ -142,10 +181,10 @@ class AppStrings {
     'results.searchHint': 'Example: 100.1 or 101.16',
     'results.lastScan': 'Last Scan: {time}',
     'results.ipBlock': 'IP Block: {scope}',
-    'results.onlineMiners': 'Online Miners: {count}',
+    'results.onlineMiners': 'Online: {count}',
     'results.unresponsiveMiners': 'Unresponsive: {count}',
     'results.offlineMiners': 'Offline: {count}',
-    'results.retiredMiners': 'Retired: {count}',
+    'results.retiredMiners': 'Pending Retire: {count}',
     'results.trackedMiners': 'Tracked Miners: {count}',
     'results.issueCount': 'Issues: {count}',
     'segment.title': '{scope} Details',
@@ -155,7 +194,7 @@ class AppStrings {
     'segment.filter.online': 'Online',
     'segment.filter.unresponsive': 'Unresponsive',
     'segment.filter.offline': 'Offline',
-    'segment.filter.retired': 'Retired',
+    'segment.filter.retired': 'Pending Retire',
     'segment.selected': 'Selected: {count}',
     'segment.selectAll': 'Select All',
     'segment.cancelSelect': 'Cancel Selection',
@@ -275,6 +314,10 @@ class AppStrings {
     'app.scan.progress': '扫描中 {current}/{total}',
     'app.scan.paused': '扫描已暂停 {current}/{total}',
     'app.scan.finalizing': '正在整理扫描结果...',
+    'app.scan.finalizing.logs': '正在分析零算力矿机日志...',
+    'app.scan.finalizing.clearRefine': '正在清除未响应矿机自适应...',
+    'app.scan.finalizing.recheck': '正在复查等待恢复的矿机...',
+    'app.scan.finalizing.persist': '正在保存扫描结果...',
     'app.scanner.open': '打开扫码',
     'app.autoScanLog.open': '自动扫描日志',
     'app.knownMiners.open': '已知矿机',
@@ -292,6 +335,7 @@ class AppStrings {
     'app.autoScanLog.startedAt': '开始：{time}',
     'app.autoScanLog.finishedAt': '结束：{time}',
     'app.autoScanLog.onlineCount': '在线矿机：{count}',
+    'app.autoScanLog.stageDurations': '阶段耗时',
     'app.autoScanLog.status.success': '已完成',
     'app.autoScanLog.status.failed': '失败',
     'app.autoScanLog.status.skipped': '已跳过',
@@ -304,11 +348,13 @@ class AppStrings {
     'overview.onlineMiners': '在线矿机',
     'overview.unresponsiveMiners': '未响应矿机',
     'overview.offlineMiners': '离线矿机',
-    'overview.retiredMiners': '下架矿机',
+    'overview.retiredMiners': '待下架矿机',
+    'overview.abnormalMiners': '异常矿机',
     'overview.allOnlineTitle': '全部在线矿机',
     'overview.allUnresponsiveTitle': '全部未响应矿机',
     'overview.allOfflineTitle': '全部离线矿机',
-    'overview.allRetiredTitle': '全部下架矿机',
+    'overview.allRetiredTitle': '全部待下架矿机',
+    'overview.allAbnormalTitle': '全部异常矿机',
     'overview.emptyCategory': '当前分类下没有矿机。',
     'overview.scope': 'IP 段：{scope}',
     'overview.totalHashrate': '整体算力',
@@ -332,6 +378,25 @@ class AppStrings {
     'overview.averageWindow1h': '1H',
     'overview.averageWindow12h': '12H',
     'overview.hourlyHashrateChart': '小时平均算力折线图',
+    'overview.hashrateTrendChart': '整体算力变化',
+    'issue.reason.POWER_SUPPLY_FAULT': '电源已损坏，输出电压明显低于目标范围。',
+    'issue.solution.POWER_SUPPLY_FAULT':
+        '建议直接更换电源，并在重新上电前检查输出线缆和输入供电是否正常。',
+    'issue.reason.FAN_ERROR': '检测到风扇故障或风扇转速异常。',
+    'issue.solution.FAN_ERROR':
+        '请检查风扇供电、接线和插头，必要时更换故障风扇，并确认所有风扇恢复正常转速。',
+    'issue.reason.CHAIN_BREAK': '检测到算力板链路通信异常或 ASIC 识别异常。',
+    'issue.solution.CHAIN_BREAK':
+        '请检查异常算力板、排线和连接器。如果更早日志里先出现风扇异常，应优先修复散热问题，再处理算力板。',
+    'issue.reason.OVER_MAX_TEMP': '矿机温度超过安全阈值。',
+    'issue.solution.OVER_MAX_TEMP': '请改善风道、清理灰尘，并检查风扇转速和环境温度。',
+    'issue.reason.AUTHEN_START_WAIT': '矿机报错后重新开始认证，需要等待恢复。',
+    'issue.solution.AUTHEN_START_WAIT':
+        '请继续观察，等待下一次自动扫描后再确认算力是否恢复正常。',
+    'issue.reason.ERRORMSG': '矿机上报了未细分的内核或硬件错误。',
+    'issue.solution.ERRORMSG': '请打开矿机详情页查看完整内核日志，并重点检查电源、风扇和算力板状态。',
+    'issue.reason.UNKNOWN_ZERO_HASH': '零算力原因未识别。',
+    'issue.solution.UNKNOWN_ZERO_HASH': '请检查矿机日志、风扇转速、温度以及矿池连接状态。',
     'overview.chartEmpty': '当前历史扫描数据不足。',
     'overview.chartAxisTime': '时间',
     'overview.chartAxisHashrate': '算力 (TH/s)',
@@ -348,6 +413,10 @@ class AppStrings {
     'settings.language.en': 'English',
     'settings.language.zh': '中文',
     'settings.fontScale': '字体大小',
+    'settings.choose': '选择',
+    'settings.autoScanWindow': '自动扫描时间窗',
+    'settings.autoScanStart': '启用时间',
+    'settings.autoScanStop': '停止时间',
     'settings.autoRefresh': '自动刷新',
     'settings.showOffline': '显示离线矿机',
     'settings.collectLogs': '采集日志',
@@ -406,7 +475,7 @@ class AppStrings {
     'results.onlineMiners': '在线矿机：{count}',
     'results.unresponsiveMiners': '未响应：{count}',
     'results.offlineMiners': '离线：{count}',
-    'results.retiredMiners': '下架：{count}',
+    'results.retiredMiners': '待下架：{count}',
     'results.trackedMiners': '记录矿机：{count}',
     'results.issueCount': '异常：{count}',
     'segment.title': '{scope} 搜索详情',
@@ -416,7 +485,7 @@ class AppStrings {
     'segment.filter.online': '在线',
     'segment.filter.unresponsive': '未响应',
     'segment.filter.offline': '离线',
-    'segment.filter.retired': '下架',
+    'segment.filter.retired': '待下架',
     'segment.selected': '已选择：{count}',
     'segment.selectAll': '全选',
     'segment.cancelSelect': '取消选择',
@@ -528,6 +597,11 @@ class AppStrings {
   static String english(String key, {Map<String, String> params = const {}}) {
     final template = _en[key] ?? key;
     return _replaceParams(template, params);
+  }
+
+  static bool contains(AppLanguage language, String key) {
+    final table = language == AppLanguage.zh ? _zh : _en;
+    return table.containsKey(key) || _en.containsKey(key);
   }
 
   static String _replaceParams(String template, Map<String, String> params) {

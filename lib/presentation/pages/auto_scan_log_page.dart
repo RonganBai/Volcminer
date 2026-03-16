@@ -103,6 +103,36 @@ class _AutoScanLogPageState extends ConsumerState<AutoScanLogPage> {
                             style: const TextStyle(color: Colors.black54),
                           ),
                         ],
+                        if (log.stageDurationsMs.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            l10n.t('app.autoScanLog.stageDurations'),
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          const SizedBox(height: 6),
+                          ...log.stageDurationsMs.entries.map(
+                            (entry) => Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _stageText(l10n, entry.key),
+                                      style: const TextStyle(color: Colors.black87),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _formatDuration(entry.value),
+                                    style: const TextStyle(color: Colors.black54),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -127,6 +157,17 @@ class _AutoScanLogPageState extends ConsumerState<AutoScanLogPage> {
       'running' => l10n.t('app.autoScanLog.status.running'),
       _ => l10n.t('app.autoScanLog.status.unknown'),
     };
+  }
+
+  String _stageText(AppLocalizer l10n, String stageKey) {
+    return l10n.t(stageKey);
+  }
+
+  String _formatDuration(int milliseconds) {
+    final totalSeconds = (milliseconds / 1000).round();
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 }
 

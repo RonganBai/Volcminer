@@ -22,38 +22,48 @@ const AppSettingsRecordSchema = CollectionSchema(
       name: r'autoRefreshEnabled',
       type: IsarType.bool,
     ),
-    r'collectLogsEnabled': PropertySchema(
+    r'autoScanStartMinute': PropertySchema(
       id: 1,
+      name: r'autoScanStartMinute',
+      type: IsarType.long,
+    ),
+    r'autoScanStopMinute': PropertySchema(
+      id: 2,
+      name: r'autoScanStopMinute',
+      type: IsarType.long,
+    ),
+    r'collectLogsEnabled': PropertySchema(
+      id: 3,
       name: r'collectLogsEnabled',
       type: IsarType.bool,
     ),
     r'fontScale': PropertySchema(
-      id: 2,
+      id: 4,
       name: r'fontScale',
       type: IsarType.double,
     ),
     r'minerUsername': PropertySchema(
-      id: 3,
+      id: 5,
       name: r'minerUsername',
       type: IsarType.string,
     ),
     r'poolSearchUsername': PropertySchema(
-      id: 4,
+      id: 6,
       name: r'poolSearchUsername',
       type: IsarType.string,
     ),
     r'refreshIntervalSec': PropertySchema(
-      id: 5,
+      id: 7,
       name: r'refreshIntervalSec',
       type: IsarType.long,
     ),
     r'scanConcurrency': PropertySchema(
-      id: 6,
+      id: 8,
       name: r'scanConcurrency',
       type: IsarType.long,
     ),
     r'showOfflineEnabled': PropertySchema(
-      id: 7,
+      id: 9,
       name: r'showOfflineEnabled',
       type: IsarType.bool,
     )
@@ -90,13 +100,15 @@ void _appSettingsRecordSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeBool(offsets[0], object.autoRefreshEnabled);
-  writer.writeBool(offsets[1], object.collectLogsEnabled);
-  writer.writeDouble(offsets[2], object.fontScale);
-  writer.writeString(offsets[3], object.minerUsername);
-  writer.writeString(offsets[4], object.poolSearchUsername);
-  writer.writeLong(offsets[5], object.refreshIntervalSec);
-  writer.writeLong(offsets[6], object.scanConcurrency);
-  writer.writeBool(offsets[7], object.showOfflineEnabled);
+  writer.writeLong(offsets[1], object.autoScanStartMinute);
+  writer.writeLong(offsets[2], object.autoScanStopMinute);
+  writer.writeBool(offsets[3], object.collectLogsEnabled);
+  writer.writeDouble(offsets[4], object.fontScale);
+  writer.writeString(offsets[5], object.minerUsername);
+  writer.writeString(offsets[6], object.poolSearchUsername);
+  writer.writeLong(offsets[7], object.refreshIntervalSec);
+  writer.writeLong(offsets[8], object.scanConcurrency);
+  writer.writeBool(offsets[9], object.showOfflineEnabled);
 }
 
 AppSettingsRecord _appSettingsRecordDeserialize(
@@ -107,14 +119,16 @@ AppSettingsRecord _appSettingsRecordDeserialize(
 ) {
   final object = AppSettingsRecord();
   object.autoRefreshEnabled = reader.readBool(offsets[0]);
-  object.collectLogsEnabled = reader.readBool(offsets[1]);
-  object.fontScale = reader.readDouble(offsets[2]);
+  object.autoScanStartMinute = reader.readLong(offsets[1]);
+  object.autoScanStopMinute = reader.readLong(offsets[2]);
+  object.collectLogsEnabled = reader.readBool(offsets[3]);
+  object.fontScale = reader.readDouble(offsets[4]);
   object.id = id;
-  object.minerUsername = reader.readString(offsets[3]);
-  object.poolSearchUsername = reader.readString(offsets[4]);
-  object.refreshIntervalSec = reader.readLong(offsets[5]);
-  object.scanConcurrency = reader.readLong(offsets[6]);
-  object.showOfflineEnabled = reader.readBool(offsets[7]);
+  object.minerUsername = reader.readString(offsets[5]);
+  object.poolSearchUsername = reader.readString(offsets[6]);
+  object.refreshIntervalSec = reader.readLong(offsets[7]);
+  object.scanConcurrency = reader.readLong(offsets[8]);
+  object.showOfflineEnabled = reader.readBool(offsets[9]);
   return object;
 }
 
@@ -128,18 +142,22 @@ P _appSettingsRecordDeserializeProp<P>(
     case 0:
       return (reader.readBool(offset)) as P;
     case 1:
-      return (reader.readBool(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 2:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 3:
-      return (reader.readString(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 4:
-      return (reader.readString(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 5:
-      return (reader.readLong(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 6:
-      return (reader.readLong(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 7:
+      return (reader.readLong(offset)) as P;
+    case 8:
+      return (reader.readLong(offset)) as P;
+    case 9:
       return (reader.readBool(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -248,6 +266,118 @@ extension AppSettingsRecordQueryFilter
       return query.addFilterCondition(FilterCondition.equalTo(
         property: r'autoRefreshEnabled',
         value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+      autoScanStartMinuteEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'autoScanStartMinute',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+      autoScanStartMinuteGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'autoScanStartMinute',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+      autoScanStartMinuteLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'autoScanStartMinute',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+      autoScanStartMinuteBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'autoScanStartMinute',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+      autoScanStopMinuteEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'autoScanStopMinute',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+      autoScanStopMinuteGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'autoScanStopMinute',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+      autoScanStopMinuteLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'autoScanStopMinute',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+      autoScanStopMinuteBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'autoScanStopMinute',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
       ));
     });
   }
@@ -802,6 +932,34 @@ extension AppSettingsRecordQuerySortBy
   }
 
   QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
+      sortByAutoScanStartMinute() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'autoScanStartMinute', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
+      sortByAutoScanStartMinuteDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'autoScanStartMinute', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
+      sortByAutoScanStopMinute() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'autoScanStopMinute', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
+      sortByAutoScanStopMinuteDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'autoScanStopMinute', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
       sortByCollectLogsEnabled() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'collectLogsEnabled', Sort.asc);
@@ -913,6 +1071,34 @@ extension AppSettingsRecordQuerySortThenBy
       thenByAutoRefreshEnabledDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'autoRefreshEnabled', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
+      thenByAutoScanStartMinute() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'autoScanStartMinute', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
+      thenByAutoScanStartMinuteDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'autoScanStartMinute', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
+      thenByAutoScanStopMinute() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'autoScanStopMinute', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
+      thenByAutoScanStopMinuteDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'autoScanStopMinute', Sort.desc);
     });
   }
 
@@ -1038,6 +1224,20 @@ extension AppSettingsRecordQueryWhereDistinct
   }
 
   QueryBuilder<AppSettingsRecord, AppSettingsRecord, QDistinct>
+      distinctByAutoScanStartMinute() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'autoScanStartMinute');
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QDistinct>
+      distinctByAutoScanStopMinute() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'autoScanStopMinute');
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QDistinct>
       distinctByCollectLogsEnabled() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'collectLogsEnabled');
@@ -1101,6 +1301,20 @@ extension AppSettingsRecordQueryProperty
       autoRefreshEnabledProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'autoRefreshEnabled');
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, int, QQueryOperations>
+      autoScanStartMinuteProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'autoScanStartMinute');
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, int, QQueryOperations>
+      autoScanStopMinuteProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'autoScanStopMinute');
     });
   }
 

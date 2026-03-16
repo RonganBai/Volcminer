@@ -7,6 +7,7 @@ import 'package:volcminer/domain/entities/credential.dart';
 import 'package:volcminer/domain/entities/scan_segment_record.dart';
 import 'package:volcminer/domain/entities/tracked_miner.dart';
 import 'package:volcminer/presentation/localization/app_localizer.dart';
+import 'package:volcminer/presentation/localization/issue_localizer.dart';
 import 'package:volcminer/presentation/pages/miner_detail_page.dart';
 import 'package:volcminer/presentation/pages/pool_config_page.dart';
 import 'package:volcminer/presentation/providers/app_providers.dart';
@@ -316,12 +317,12 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
                         children: [
                           Row(
                             children: [
-                              if (miner.state == TrackedMinerState.online) ...[
+                              if (_statusDotColor(miner) != null) ...[
                                 Container(
                                   width: 8,
                                   height: 8,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.green,
+                                  decoration: BoxDecoration(
+                                    color: _statusDotColor(miner),
                                     shape: BoxShape.circle,
                                   ),
                                 ),
@@ -341,7 +342,12 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
                             Text(
                               l10n.t(
                                 'segment.issueReason',
-                                params: {'reason': miner.diagnosis!.reason},
+                                params: {
+                                  'reason': IssueLocalizer.reason(
+                                    l10n,
+                                    miner.diagnosis!,
+                                  ),
+                                },
                               ),
                               style: const TextStyle(
                                 color: Colors.orange,
@@ -352,17 +358,32 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
                             Text(
                               l10n.t(
                                 'segment.issueSolution',
-                                params: {'solution': miner.diagnosis!.solution},
+                                params: {
+                                  'solution': IssueLocalizer.solution(
+                                    l10n,
+                                    miner.diagnosis!,
+                                  ),
+                                },
                               ),
                               style: const TextStyle(color: Colors.black54),
                             ),
-                            if (miner.diagnosis!.secondaryReason != null) ...[
+                            if (IssueLocalizer.snippetSummary(l10n, miner.diagnosis!) != null) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                IssueLocalizer.snippetSummary(l10n, miner.diagnosis!)!,
+                                style: const TextStyle(color: Colors.black54),
+                              ),
+                            ],
+                            if (IssueLocalizer.secondaryReason(l10n, miner.diagnosis!) != null) ...[
                               const SizedBox(height: 2),
                               Text(
                                 l10n.t(
                                   'segment.issueSecondary',
                                   params: {
-                                    'reason': miner.diagnosis!.secondaryReason!,
+                                    'reason': IssueLocalizer.secondaryReason(
+                                      l10n,
+                                      miner.diagnosis!,
+                                    )!,
                                   },
                                 ),
                                 style: const TextStyle(color: Colors.black54),
@@ -372,13 +393,7 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
                         ],
                       ),
                     ),
-                    trailing: _selectionMode
-                        ? Icon(
-                            selected
-                                ? Icons.check_circle
-                                : Icons.radio_button_unchecked,
-                          )
-                        : const Icon(Icons.chevron_right),
+                    trailing: _selectionMode ? null : const Icon(Icons.chevron_right),
                     selected: _selectionMode && selected,
                     onLongPress: () {
                       setState(() {
@@ -461,6 +476,7 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
     return ChoiceChip(
       label: Text(label),
       selected: _filter == value,
+      showCheckmark: false,
       onSelected: (_) => setState(() => _filter = value),
     );
   }
@@ -595,7 +611,7 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
         _SegmentFilter.unresponsive =>
           miner.state == TrackedMinerState.unresponsive,
         _SegmentFilter.offline => miner.state == TrackedMinerState.offline,
-        _SegmentFilter.retired => miner.state == TrackedMinerState.retired,
+        _SegmentFilter.retired => miner.state == TrackedMinerState.pendingRetire,
       };
     }).toList(growable: false)
       ..sort((a, b) => IpUtils.ipToInt(a.ip).compareTo(IpUtils.ipToInt(b.ip)));
@@ -619,27 +635,36 @@ class _HashrateBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hashrate = HashrateUtils.effectiveGh(miner.runtime.ghs5s, miner.runtime.ghsav);
-    final color = hashrate > 11000
-        ? Colors.green
-        : hashrate > 5000
-            ? Colors.amber
-            : Colors.red;
-    final widthFactor = (hashrate / 15000).clamp(0.08, 1.0);
+    final stateIndex = hashrate > 14
+        ? 0
+        : hashrate > 5
+            ? 1
+            : 2;
+    const colors = [Colors.green, Colors.amber, Colors.red];
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        height: 6,
-        color: Colors.black12,
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: FractionallySizedBox(
-            widthFactor: widthFactor,
-            child: Container(color: color),
+    return Row(
+      children: [
+        for (var i = 0; i < colors.length; i++) ...[
+          Expanded(
+            child: Container(
+              height: 6,
+              decoration: BoxDecoration(
+                color: colors[i].withValues(alpha: i == stateIndex ? 1 : 0.22),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
           ),
-        ),
-      ),
+          if (i != colors.length - 1) const SizedBox(width: 4),
+        ],
+      ],
     );
   }
+}
 
+Color? _statusDotColor(TrackedMiner miner) {
+  return switch (miner.state) {
+    TrackedMinerState.online => Colors.green,
+    TrackedMinerState.offline => Colors.red,
+    _ => null,
+  };
 }

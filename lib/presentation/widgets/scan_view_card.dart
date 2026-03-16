@@ -41,7 +41,6 @@ class ScanViewCard extends ConsumerWidget {
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
-                  Checkbox(value: selected, onChanged: (_) => onTap()),
                   IconButton(
                     onPressed: onDelete,
                     icon: const Icon(Icons.delete_outline),

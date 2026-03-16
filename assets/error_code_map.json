@@ -1,38 +1,83 @@
 [
   {
-    "code": "ERRORMSG",
-    "category": "generic",
-    "matches": ["ERRORMSG"],
-    "reason": "Miner reported an unspecified kernel or hardware error.",
-    "solution": "Open the miner detail page and inspect the full kernel log. Check power, fan speed, and hash board status."
+    "code": "POWER_SUPPLY_FAULT",
+    "category": "power",
+    "priority": 100,
+    "matches": [
+      "voltage < 0.75*target_voltage",
+      "powervout_read: 0.000000",
+      "powervout_read: 0 0",
+      "checksensedeviceid",
+      "checkvoltagesensedeviceid",
+      "vbus:3"
+    ],
+    "reason": "The power supply is damaged and output voltage is far below the target range.",
+    "solution": "Replace the power supply and inspect the output cables and input power before powering on again."
+  },
+  {
+    "code": "FAN_ERROR",
+    "category": "fan",
+    "priority": 90,
+    "matches": [
+      "fan err",
+      "fan error",
+      "fan lost",
+      "fan speed too low",
+      "fan abnormal",
+      "fan fail",
+      "too slow",
+      "fan0speed = 0",
+      "fan1speed = 0",
+      "fan2speed = 0",
+      "fan3speed = 0",
+      "fan0speedcur:0",
+      "fan1speedcur:0",
+      "fan2speedcur:0",
+      "fan3speedcur:0"
+    ],
+    "reason": "A fan failure or abnormal fan speed was detected.",
+    "solution": "Check fan wiring, fan power, and fan connectors. Replace the failed fan and confirm all fans return to normal speed."
+  },
+  {
+    "code": "CHAIN_BREAK",
+    "category": "hashboard",
+    "priority": 80,
+    "matches": [
+      "chain break",
+      "chain num error",
+      "hashboard error",
+      "chain find only",
+      "wrong asic",
+      "configsoftreset:0x00000004",
+      "powerstatus:0",
+      "operation 0x0"
+    ],
+    "reason": "A hash board chain communication or ASIC detection error was detected.",
+    "solution": "Inspect the affected hash board, ribbon cable, and connector. If fan errors happened first, repair cooling before replacing the hash board.",
+    "inspectEarlierForCategories": ["fan"]
   },
   {
     "code": "OVER_MAX_TEMP",
     "category": "temperature",
+    "priority": 70,
     "matches": ["over max temp", "temp is too high", "overheat"],
     "reason": "Miner temperature exceeded the safe threshold.",
     "solution": "Improve airflow, clean dust, and verify the fan speed and ambient temperature."
   },
   {
-    "code": "CHAIN_BREAK",
-    "category": "hashboard",
-    "matches": ["chain break", "chain num error", "hashboard error", "chain find only"],
-    "reason": "A hash board chain communication error was detected.",
-    "solution": "Check the cable, inspect the hash board connection, and reboot the miner after hardware inspection.",
-    "inspectEarlierForCategories": ["fan"]
-  },
-  {
-    "code": "FAN_ERROR",
-    "category": "fan",
-    "matches": ["fan err", "fan error", "fan lost", "fan speed too low", "fan abnormal", "fan fail"],
-    "reason": "A fan failure or abnormal fan speed was detected.",
-    "solution": "Check fan wiring, replace the failed fan, and verify all fans can reach normal speed."
-  },
-  {
     "code": "AUTHEN_START_WAIT",
     "category": "recovery_wait",
+    "priority": 60,
     "matches": ["Authen Start !!!!!"],
     "reason": "The miner restarted authentication after an error and needs a short recovery window.",
-    "solution": "Keep the miner under observation for 10 minutes, then refresh this miner only and confirm whether the hashrate has recovered."
+    "solution": "Keep the miner under observation until the next auto scan, then confirm whether the hashrate has recovered."
+  },
+  {
+    "code": "ERRORMSG",
+    "category": "generic",
+    "priority": 1,
+    "matches": ["ERRORMSG"],
+    "reason": "Miner reported an unspecified kernel or hardware error.",
+    "solution": "Open the miner detail page and inspect the full kernel log. Check power, fan speed, and hash board status."
   }
 ]

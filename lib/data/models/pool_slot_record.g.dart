@@ -17,13 +17,21 @@ const PoolSlotRecordSchema = CollectionSchema(
   name: r'PoolSlotRecord',
   id: -3905437408098126015,
   properties: {
-    r'poolUrl': PropertySchema(id: 0, name: r'poolUrl', type: IsarType.string),
-    r'slotNo': PropertySchema(id: 1, name: r'slotNo', type: IsarType.long),
+    r'poolUrl': PropertySchema(
+      id: 0,
+      name: r'poolUrl',
+      type: IsarType.string,
+    ),
+    r'slotNo': PropertySchema(
+      id: 1,
+      name: r'slotNo',
+      type: IsarType.long,
+    ),
     r'workerCode': PropertySchema(
       id: 2,
       name: r'workerCode',
       type: IsarType.string,
-    ),
+    )
   },
   estimateSize: _poolSlotRecordEstimateSize,
   serialize: _poolSlotRecordSerialize,
@@ -41,9 +49,9 @@ const PoolSlotRecordSchema = CollectionSchema(
           name: r'slotNo',
           type: IndexType.value,
           caseSensitive: false,
-        ),
+        )
       ],
-    ),
+    )
   },
   links: {},
   embeddedSchemas: {},
@@ -116,10 +124,7 @@ List<IsarLinkBase<dynamic>> _poolSlotRecordGetLinks(PoolSlotRecord object) {
 }
 
 void _poolSlotRecordAttach(
-  IsarCollection<dynamic> col,
-  Id id,
-  PoolSlotRecord object,
-) {
+    IsarCollection<dynamic> col, Id id, PoolSlotRecord object) {
   object.id = id;
 }
 
@@ -172,10 +177,8 @@ extension PoolSlotRecordByIndex on IsarCollection<PoolSlotRecord> {
     return putAllByIndex(r'slotNo', objects);
   }
 
-  List<Id> putAllBySlotNoSync(
-    List<PoolSlotRecord> objects, {
-    bool saveLinks = true,
-  }) {
+  List<Id> putAllBySlotNoSync(List<PoolSlotRecord> objects,
+      {bool saveLinks = true}) {
     return putAllByIndexSync(r'slotNo', objects, saveLinks: saveLinks);
   }
 }
@@ -200,16 +203,17 @@ extension PoolSlotRecordQueryWhereSort
 extension PoolSlotRecordQueryWhere
     on QueryBuilder<PoolSlotRecord, PoolSlotRecord, QWhereClause> {
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterWhereClause> idEqualTo(
-    Id id,
-  ) {
+      Id id) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
+      return query.addWhereClause(IdWhereClause.between(
+        lower: id,
+        upper: id,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterWhereClause> idNotEqualTo(
-    Id id,
-  ) {
+      Id id) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
@@ -232,9 +236,8 @@ extension PoolSlotRecordQueryWhere
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterWhereClause> idGreaterThan(
-    Id id, {
-    bool include = false,
-  }) {
+      Id id,
+      {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -243,9 +246,8 @@ extension PoolSlotRecordQueryWhere
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterWhereClause> idLessThan(
-    Id id, {
-    bool include = false,
-  }) {
+      Id id,
+      {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -260,95 +262,87 @@ extension PoolSlotRecordQueryWhere
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(
-        IdWhereClause.between(
-          lower: lowerId,
-          includeLower: includeLower,
-          upper: upperId,
-          includeUpper: includeUpper,
-        ),
-      );
+      return query.addWhereClause(IdWhereClause.between(
+        lower: lowerId,
+        includeLower: includeLower,
+        upper: upperId,
+        includeUpper: includeUpper,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterWhereClause> slotNoEqualTo(
-    int slotNo,
-  ) {
+      int slotNo) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(
-        IndexWhereClause.equalTo(indexName: r'slotNo', value: [slotNo]),
-      );
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'slotNo',
+        value: [slotNo],
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterWhereClause>
-  slotNoNotEqualTo(int slotNo) {
+      slotNoNotEqualTo(int slotNo) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(
-              IndexWhereClause.between(
-                indexName: r'slotNo',
-                lower: [],
-                upper: [slotNo],
-                includeUpper: false,
-              ),
-            )
-            .addWhereClause(
-              IndexWhereClause.between(
-                indexName: r'slotNo',
-                lower: [slotNo],
-                includeLower: false,
-                upper: [],
-              ),
-            );
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'slotNo',
+              lower: [],
+              upper: [slotNo],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'slotNo',
+              lower: [slotNo],
+              includeLower: false,
+              upper: [],
+            ));
       } else {
         return query
-            .addWhereClause(
-              IndexWhereClause.between(
-                indexName: r'slotNo',
-                lower: [slotNo],
-                includeLower: false,
-                upper: [],
-              ),
-            )
-            .addWhereClause(
-              IndexWhereClause.between(
-                indexName: r'slotNo',
-                lower: [],
-                upper: [slotNo],
-                includeUpper: false,
-              ),
-            );
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'slotNo',
+              lower: [slotNo],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'slotNo',
+              lower: [],
+              upper: [slotNo],
+              includeUpper: false,
+            ));
       }
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterWhereClause>
-  slotNoGreaterThan(int slotNo, {bool include = false}) {
+      slotNoGreaterThan(
+    int slotNo, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(
-        IndexWhereClause.between(
-          indexName: r'slotNo',
-          lower: [slotNo],
-          includeLower: include,
-          upper: [],
-        ),
-      );
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'slotNo',
+        lower: [slotNo],
+        includeLower: include,
+        upper: [],
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterWhereClause>
-  slotNoLessThan(int slotNo, {bool include = false}) {
+      slotNoLessThan(
+    int slotNo, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(
-        IndexWhereClause.between(
-          indexName: r'slotNo',
-          lower: [],
-          upper: [slotNo],
-          includeUpper: include,
-        ),
-      );
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'slotNo',
+        lower: [],
+        upper: [slotNo],
+        includeUpper: include,
+      ));
     });
   }
 
@@ -359,15 +353,13 @@ extension PoolSlotRecordQueryWhere
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(
-        IndexWhereClause.between(
-          indexName: r'slotNo',
-          lower: [lowerSlotNo],
-          includeLower: includeLower,
-          upper: [upperSlotNo],
-          includeUpper: includeUpper,
-        ),
-      );
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'slotNo',
+        lower: [lowerSlotNo],
+        includeLower: includeLower,
+        upper: [upperSlotNo],
+        includeUpper: includeUpper,
+      ));
     });
   }
 }
@@ -375,38 +367,40 @@ extension PoolSlotRecordQueryWhere
 extension PoolSlotRecordQueryFilter
     on QueryBuilder<PoolSlotRecord, PoolSlotRecord, QFilterCondition> {
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition> idEqualTo(
-    Id value,
-  ) {
+      Id value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'id', value: value),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'id',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  idGreaterThan(Id value, {bool include = false}) {
+      idGreaterThan(
+    Id value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'id',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'id',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  idLessThan(Id value, {bool include = false}) {
+      idLessThan(
+    Id value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'id',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'id',
+        value: value,
+      ));
     });
   }
 
@@ -417,69 +411,64 @@ extension PoolSlotRecordQueryFilter
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'id',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'id',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  poolUrlEqualTo(String value, {bool caseSensitive = true}) {
+      poolUrlEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(
-          property: r'poolUrl',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'poolUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  poolUrlGreaterThan(
+      poolUrlGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'poolUrl',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'poolUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  poolUrlLessThan(
+      poolUrlLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'poolUrl',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'poolUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  poolUrlBetween(
+      poolUrlBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -487,195 +476,191 @@ extension PoolSlotRecordQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'poolUrl',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'poolUrl',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  poolUrlStartsWith(String value, {bool caseSensitive = true}) {
+      poolUrlStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.startsWith(
-          property: r'poolUrl',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'poolUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  poolUrlEndsWith(String value, {bool caseSensitive = true}) {
+      poolUrlEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.endsWith(
-          property: r'poolUrl',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'poolUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  poolUrlContains(String value, {bool caseSensitive = true}) {
+      poolUrlContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.contains(
-          property: r'poolUrl',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'poolUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  poolUrlMatches(String pattern, {bool caseSensitive = true}) {
+      poolUrlMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.matches(
-          property: r'poolUrl',
-          wildcard: pattern,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'poolUrl',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  poolUrlIsEmpty() {
+      poolUrlIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'poolUrl', value: ''),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'poolUrl',
+        value: '',
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  poolUrlIsNotEmpty() {
+      poolUrlIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(property: r'poolUrl', value: ''),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'poolUrl',
+        value: '',
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  slotNoEqualTo(int value) {
+      slotNoEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'slotNo', value: value),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'slotNo',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  slotNoGreaterThan(int value, {bool include = false}) {
+      slotNoGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'slotNo',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'slotNo',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  slotNoLessThan(int value, {bool include = false}) {
+      slotNoLessThan(
+    int value, {
+    bool include = false,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'slotNo',
-          value: value,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'slotNo',
+        value: value,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  slotNoBetween(
+      slotNoBetween(
     int lower,
     int upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'slotNo',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'slotNo',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  workerCodeEqualTo(String value, {bool caseSensitive = true}) {
+      workerCodeEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(
-          property: r'workerCode',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'workerCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  workerCodeGreaterThan(
+      workerCodeGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(
-          include: include,
-          property: r'workerCode',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'workerCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  workerCodeLessThan(
+      workerCodeLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.lessThan(
-          include: include,
-          property: r'workerCode',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'workerCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  workerCodeBetween(
+      workerCodeBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -683,86 +668,84 @@ extension PoolSlotRecordQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.between(
-          property: r'workerCode',
-          lower: lower,
-          includeLower: includeLower,
-          upper: upper,
-          includeUpper: includeUpper,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'workerCode',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  workerCodeStartsWith(String value, {bool caseSensitive = true}) {
+      workerCodeStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.startsWith(
-          property: r'workerCode',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'workerCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  workerCodeEndsWith(String value, {bool caseSensitive = true}) {
+      workerCodeEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.endsWith(
-          property: r'workerCode',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'workerCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  workerCodeContains(String value, {bool caseSensitive = true}) {
+      workerCodeContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.contains(
-          property: r'workerCode',
-          value: value,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'workerCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  workerCodeMatches(String pattern, {bool caseSensitive = true}) {
+      workerCodeMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.matches(
-          property: r'workerCode',
-          wildcard: pattern,
-          caseSensitive: caseSensitive,
-        ),
-      );
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'workerCode',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  workerCodeIsEmpty() {
+      workerCodeIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.equalTo(property: r'workerCode', value: ''),
-      );
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'workerCode',
+        value: '',
+      ));
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterFilterCondition>
-  workerCodeIsNotEmpty() {
+      workerCodeIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(
-        FilterCondition.greaterThan(property: r'workerCode', value: ''),
-      );
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'workerCode',
+        value: '',
+      ));
     });
   }
 }
@@ -782,7 +765,7 @@ extension PoolSlotRecordQuerySortBy
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterSortBy>
-  sortByPoolUrlDesc() {
+      sortByPoolUrlDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'poolUrl', Sort.desc);
     });
@@ -795,21 +778,21 @@ extension PoolSlotRecordQuerySortBy
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterSortBy>
-  sortBySlotNoDesc() {
+      sortBySlotNoDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'slotNo', Sort.desc);
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterSortBy>
-  sortByWorkerCode() {
+      sortByWorkerCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'workerCode', Sort.asc);
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterSortBy>
-  sortByWorkerCodeDesc() {
+      sortByWorkerCodeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'workerCode', Sort.desc);
     });
@@ -837,7 +820,7 @@ extension PoolSlotRecordQuerySortThenBy
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterSortBy>
-  thenByPoolUrlDesc() {
+      thenByPoolUrlDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'poolUrl', Sort.desc);
     });
@@ -850,21 +833,21 @@ extension PoolSlotRecordQuerySortThenBy
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterSortBy>
-  thenBySlotNoDesc() {
+      thenBySlotNoDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'slotNo', Sort.desc);
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterSortBy>
-  thenByWorkerCode() {
+      thenByWorkerCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'workerCode', Sort.asc);
     });
   }
 
   QueryBuilder<PoolSlotRecord, PoolSlotRecord, QAfterSortBy>
-  thenByWorkerCodeDesc() {
+      thenByWorkerCodeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'workerCode', Sort.desc);
     });
@@ -873,9 +856,8 @@ extension PoolSlotRecordQuerySortThenBy
 
 extension PoolSlotRecordQueryWhereDistinct
     on QueryBuilder<PoolSlotRecord, PoolSlotRecord, QDistinct> {
-  QueryBuilder<PoolSlotRecord, PoolSlotRecord, QDistinct> distinctByPoolUrl({
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<PoolSlotRecord, PoolSlotRecord, QDistinct> distinctByPoolUrl(
+      {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'poolUrl', caseSensitive: caseSensitive);
     });
@@ -887,9 +869,8 @@ extension PoolSlotRecordQueryWhereDistinct
     });
   }
 
-  QueryBuilder<PoolSlotRecord, PoolSlotRecord, QDistinct> distinctByWorkerCode({
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<PoolSlotRecord, PoolSlotRecord, QDistinct> distinctByWorkerCode(
+      {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'workerCode', caseSensitive: caseSensitive);
     });

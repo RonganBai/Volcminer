@@ -160,6 +160,7 @@ class _ScanPageState extends ConsumerState<ScanPage> {
                 ChoiceChip(
                   label: Text(l10n.t('dashboard.scanType.full')),
                   selected: mode == ScanTargetMode.full,
+                  showCheckmark: false,
                   onSelected: (_) =>
                       ref.read(scanTargetModeProvider.notifier).state =
                           ScanTargetMode.full,
@@ -167,6 +168,7 @@ class _ScanPageState extends ConsumerState<ScanPage> {
                 ChoiceChip(
                   label: Text(l10n.t('dashboard.scanType.known')),
                   selected: mode == ScanTargetMode.known,
+                  showCheckmark: false,
                   onSelected: (_) =>
                       ref.read(scanTargetModeProvider.notifier).state =
                           ScanTargetMode.known,
@@ -421,26 +423,31 @@ class _ScanPageState extends ConsumerState<ScanPage> {
   }
 
   Widget _buildSelectionMode(SelectionMode mode, AppLocalizer l10n) {
-    return Row(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Text(l10n.t('dashboard.selectionMode')),
-        const SizedBox(width: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Text(l10n.t('dashboard.selectionMode')),
+        ),
         ChoiceChip(
           label: Text(l10n.t('dashboard.selectionMode.single')),
           selected: mode == SelectionMode.single,
+          showCheckmark: false,
           onSelected: (_) => ref
               .read(scanViewControllerProvider.notifier)
               .setMode(SelectionMode.single),
         ),
-        const SizedBox(width: 8),
         ChoiceChip(
           label: Text(l10n.t('dashboard.selectionMode.multi')),
           selected: mode == SelectionMode.multi,
+          showCheckmark: false,
           onSelected: (_) => ref
               .read(scanViewControllerProvider.notifier)
               .setMode(SelectionMode.multi),
         ),
-        const SizedBox(width: 8),
         OutlinedButton(
           onPressed: () =>
               ref.read(scanViewControllerProvider.notifier).selectAll(),

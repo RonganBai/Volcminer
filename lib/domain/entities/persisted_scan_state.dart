@@ -6,6 +6,7 @@ class PersistedScanState {
     required this.segments,
     required this.ledActiveIps,
     required this.knownMinerIpsByScope,
+    required this.ignoredMinerIps,
     required this.hashrateHistory,
     required this.lastScanAt,
   });
@@ -13,6 +14,7 @@ class PersistedScanState {
   final List<ScanSegmentRecord> segments;
   final Set<String> ledActiveIps;
   final Map<String, Set<String>> knownMinerIpsByScope;
+  final Set<String> ignoredMinerIps;
   final List<HashrateSample> hashrateHistory;
   final DateTime? lastScanAt;
 }

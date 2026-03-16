@@ -131,6 +131,9 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
   static const String _settingsDecodeIntervalMs = 'decode_interval_ms';
   static const String _settingsHoldToScanEnabled = 'hold_to_scan_enabled';
   static const String _settingsHoldStopAfterOne = 'hold_stop_after_one';
+  static const String _settingsFreeFormatEnabled = 'free_format_enabled';
+  static const String _settingsMultiColumnEnabled = 'multi_column_enabled';
+  static const String _settingsMultiColumnCount = 'multi_column_count';
 
   final MobileScannerController _scannerController = MobileScannerController(
     detectionSpeed: DetectionSpeed.normal,
@@ -148,6 +151,9 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
   bool _isDetectionActive = true;
   bool _holdToScanEnabled = true;
   bool _holdStopAfterOne = false;
+  bool _freeFormatEnabled = false;
+  bool _multiColumnEnabled = false;
+  int _multiColumnCount = 2;
   bool _holdPressed = false;
   bool _holdConsumedThisPress = false;
   String _distanceHint = '未检测到编码';
@@ -193,6 +199,12 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
     final int savedDecodeInterval = prefs.getInt(_settingsDecodeIntervalMs) ?? 1200;
     final bool savedHoldToScanEnabled = prefs.getBool(_settingsHoldToScanEnabled) ?? true;
     final bool savedHoldStopAfterOne = prefs.getBool(_settingsHoldStopAfterOne) ?? false;
+    final bool savedFreeFormatEnabled =
+        prefs.getBool(_settingsFreeFormatEnabled) ?? false;
+    final bool savedMultiColumnEnabled =
+        prefs.getBool(_settingsMultiColumnEnabled) ?? false;
+    final int savedMultiColumnCount =
+        (prefs.getInt(_settingsMultiColumnCount) ?? 2).clamp(1, 6);
 
     final Directory dir = await getApplicationDocumentsDirectory();
     final File file = File('${dir.path}/scan_items.json');
@@ -214,6 +226,9 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
       _decodeIntervalMs = savedDecodeInterval.clamp(1000, 2000);
       _holdToScanEnabled = savedHoldToScanEnabled;
       _holdStopAfterOne = savedHoldStopAfterOne;
+      _freeFormatEnabled = savedFreeFormatEnabled;
+      _multiColumnEnabled = savedMultiColumnEnabled;
+      _multiColumnCount = savedMultiColumnCount;
       _storageFile = file;
       _isLoading = false;
     });
@@ -399,6 +414,40 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
     await _syncScannerState(showMessage: false);
   }
 
+  Future<void> _setFreeFormatEnabled(bool enabled) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_settingsFreeFormatEnabled, enabled);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _freeFormatEnabled = enabled;
+    });
+  }
+
+  Future<void> _setMultiColumnEnabled(bool enabled) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_settingsMultiColumnEnabled, enabled);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _multiColumnEnabled = enabled;
+    });
+  }
+
+  Future<void> _setMultiColumnCount(int value) async {
+    final int next = value.clamp(1, 6);
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_settingsMultiColumnCount, next);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _multiColumnCount = next;
+    });
+  }
+
   Future<void> _setScannerRunning(bool running, {bool showMessage = true}) async {
     if (!_isScannerRunning && !running) {
       return;
@@ -483,10 +532,16 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
             decodeIntervalMs: _decodeIntervalMs,
             holdToScanEnabled: _holdToScanEnabled,
             holdStopAfterOne: _holdStopAfterOne,
+            freeFormatEnabled: _freeFormatEnabled,
+            multiColumnEnabled: _multiColumnEnabled,
+            multiColumnCount: _multiColumnCount,
             onReminderStepChanged: _setReminderStep,
             onDecodeIntervalChanged: _setDecodeIntervalMs,
             onHoldToScanChanged: _setHoldToScanEnabled,
             onHoldStopAfterOneChanged: _setHoldStopAfterOne,
+            onFreeFormatChanged: _setFreeFormatEnabled,
+            onMultiColumnChanged: _setMultiColumnEnabled,
+            onMultiColumnCountChanged: _setMultiColumnCount,
             onExportPressed: _exportExcelToChosenDirectory,
           );
         },
@@ -948,27 +1003,34 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
           final xls.Excel excel = xls.Excel.createExcel();
           final String sheetName = 'Sheet1';
           final xls.Sheet sheet = excel[sheetName];
-          sheet.appendRow(<xls.CellValue>[
+          final int exportColumnCount = _multiColumnEnabled ? _multiColumnCount.clamp(1, 6) : 1;
+          final List<xls.CellValue> header = <xls.CellValue>[
             xls.TextCellValue('数量行'),
-            xls.TextCellValue('编码'),
+            for (int col = 0; col < exportColumnCount; col++)
+              xls.TextCellValue(exportColumnCount == 1 ? '编码' : '编码 ${col + 1}'),
             xls.TextCellValue('备注'),
-          ]);
-          for (int col = 0; col < 3; col++) {
+          ];
+          sheet.appendRow(header);
+          for (int col = 0; col < header.length; col++) {
             final xls.Data cell = sheet.cell(
               xls.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0),
             );
             cell.cellStyle = centeredStyle;
           }
-          for (int rowIndex = 0; rowIndex < table.rows.length; rowIndex++) {
-            final CodeRow row = table.rows[rowIndex];
-            sheet.appendRow(<xls.CellValue>[
+          final List<List<CodeRow>> exportRows = _groupRowsForExport(table.rows);
+          for (int rowIndex = 0; rowIndex < exportRows.length; rowIndex++) {
+            final List<CodeRow> rows = exportRows[rowIndex];
+            final String noteText = _groupNoteText(rows);
+            final List<xls.CellValue> values = <xls.CellValue>[
               xls.IntCellValue(rowIndex + 1),
-              xls.TextCellValue(row.code),
-              xls.TextCellValue((row.note ?? '').trim()),
-            ]);
-            final bool hasNote = (row.note ?? '').trim().isNotEmpty;
+              for (int col = 0; col < exportColumnCount; col++)
+                xls.TextCellValue(col < rows.length ? rows[col].code : ''),
+              xls.TextCellValue(noteText),
+            ];
+            sheet.appendRow(values);
+            final bool hasNote = noteText.isNotEmpty;
             final xls.CellStyle style = hasNote ? centeredYellowStyle : centeredStyle;
-            for (int col = 0; col < 3; col++) {
+            for (int col = 0; col < values.length; col++) {
               final xls.Data cell = sheet.cell(
                 xls.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: rowIndex + 1),
               );
@@ -1222,6 +1284,9 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
 
   (String, String) _classifyCode(String code) {
     final String normalized = code.trim();
+    if (_freeFormatEnabled) {
+      return ('free', '自由格式');
+    }
     final StringBuffer signature = StringBuffer();
     for (int i = 0; i < normalized.length; i++) {
       final String ch = normalized[i];
@@ -1448,7 +1513,7 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
           const SizedBox(width: 52, child: Text('行', style: TextStyle(fontSize: 12))),
           const Expanded(child: Text('编码', style: TextStyle(fontSize: 12))),
           SizedBox(
-            width: 76,
+            width: 64,
             child: Text(
               '操作',
               textAlign: TextAlign.right,
@@ -1457,6 +1522,255 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
           ),
         ],
       ),
+    );
+  }
+
+  List<List<CodeRow>> _groupRowsForColumns(List<CodeRow> rows) {
+    final int chunkSize = _multiColumnCount.clamp(1, 6);
+    final List<List<CodeRow>> groups = <List<CodeRow>>[];
+    for (int start = 0; start < rows.length; start += chunkSize) {
+      final int end = math.min(start + chunkSize, rows.length);
+      groups.add(rows.sublist(start, end));
+    }
+    return groups;
+  }
+
+  List<List<CodeRow>> _groupRowsForExport(List<CodeRow> rows) {
+    if (!_multiColumnEnabled) {
+      return rows.map((row) => <CodeRow>[row]).toList(growable: false);
+    }
+    return _groupRowsForColumns(rows);
+  }
+
+  String _groupNoteText(List<CodeRow> rows) {
+    if (rows.isEmpty) {
+      return '';
+    }
+    return (rows.first.note ?? '').trim();
+  }
+
+  Future<void> _editGroupedNote(
+    int tableIndex,
+    int baseRowIndex,
+    List<CodeRow> rows,
+  ) async {
+    if (rows.isEmpty) {
+      return;
+    }
+    final TextEditingController controller =
+        TextEditingController(text: _groupNoteText(rows));
+
+    final String? newNote = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('编辑备注'),
+          content: TextField(
+            controller: controller,
+            maxLines: 3,
+            onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+            decoration: const InputDecoration(hintText: '备注可留空'),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(controller.text),
+              child: const Text('保存'),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
+    if (newNote == null || !mounted) {
+      return;
+    }
+
+    final String cleaned = newNote.trim();
+    setState(() {
+      for (int offset = 0; offset < rows.length; offset++) {
+        final CodeRow current = _tables[tableIndex].rows[baseRowIndex + offset];
+        _tables[tableIndex].rows[baseRowIndex + offset] = current.copyWith(
+          note: offset == 0 ? cleaned : '',
+        );
+      }
+    });
+    await _saveToDisk();
+  }
+
+  Widget _buildColumnHeaderCell(String label) {
+    return Container(
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        border: Border(
+          right: BorderSide(color: Colors.blueGrey.shade100),
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 12, color: Colors.blueGrey.shade700, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  Widget _buildMultiColumnHeader() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.blueGrey.shade50,
+        border: Border(
+          bottom: BorderSide(color: Colors.blueGrey.shade100),
+        ),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: <Widget>[
+            SizedBox(width: 48, child: _buildColumnHeaderCell('行')),
+            for (int index = 0; index < _multiColumnCount; index++)
+              SizedBox(width: 140, child: _buildColumnHeaderCell('编码 ${index + 1}')),
+            SizedBox(
+              width: 160,
+              child: Container(
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Text(
+                  '备注',
+                  style: TextStyle(fontSize: 12, color: Colors.blueGrey.shade700, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMultiColumnCodeCell(int tableIndex, int rowIndex, CodeRow? row) {
+    if (row == null) {
+      return Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border(
+            right: BorderSide(color: Colors.blueGrey.shade50),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: (row.note ?? '').trim().isNotEmpty ? Colors.yellow.shade50 : null,
+        border: Border(
+          right: BorderSide(color: Colors.blueGrey.shade50),
+        ),
+      ),
+      child: Text(
+        row.code,
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 12),
+      ),
+    );
+  }
+
+  Widget _buildMultiColumnNoteCell(int tableIndex, List<CodeRow> rows, int baseRowIndex) {
+    final String noteText = _groupNoteText(rows);
+    final bool hasNote = noteText.isNotEmpty;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Text(
+              hasNote ? noteText : '-',
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5,
+                color: Colors.blueGrey.shade700,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: () => _editGroupedNote(tableIndex, baseRowIndex, rows),
+            tooltip: hasNote ? '编辑备注' : '添加备注',
+            visualDensity: VisualDensity.compact,
+            iconSize: 16,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+            icon: Icon(
+              hasNote ? Icons.sticky_note_2_outlined : Icons.note_add_outlined,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMultiColumnRows(int tableIndex, CodeTable table) {
+    final List<List<CodeRow>> groups = _groupRowsForColumns(table.rows);
+
+    return Column(
+      children: <Widget>[
+        _buildMultiColumnHeader(),
+        for (int groupIndex = 0; groupIndex < groups.length; groupIndex++)
+          Container(
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Colors.blueGrey.shade50),
+              ),
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Container(
+                      width: 48,
+                      alignment: Alignment.topLeft,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          right: BorderSide(color: Colors.blueGrey.shade50),
+                        ),
+                      ),
+                      child: Text(
+                        '${groupIndex + 1}',
+                        style: TextStyle(fontSize: 12, color: Colors.blueGrey.shade700),
+                      ),
+                    ),
+                    for (int columnIndex = 0; columnIndex < _multiColumnCount; columnIndex++)
+                      SizedBox(
+                        width: 140,
+                        child: _buildMultiColumnCodeCell(
+                          tableIndex,
+                          groupIndex * _multiColumnCount + columnIndex,
+                          columnIndex < groups[groupIndex].length ? groups[groupIndex][columnIndex] : null,
+                        ),
+                      ),
+                    SizedBox(
+                      width: 160,
+                      child: _buildMultiColumnNoteCell(
+                        tableIndex,
+                        groups[groupIndex],
+                        groupIndex * _multiColumnCount,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -1471,7 +1785,7 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
           bottom: BorderSide(color: Colors.blueGrey.shade50),
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
@@ -1485,15 +1799,15 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
           Expanded(
             child: Text(
               row.code,
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 12.5),
             ),
           ),
           SizedBox(
-            width: 88,
+            width: 64,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.end,
               children: <Widget>[
                 IconButton(
                   onPressed: () => _editNote(tableIndex, rowIndex),
@@ -1558,32 +1872,46 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
                 ),
-                IconButton(
-                  tooltip: '编辑表名',
-                  onPressed: () => _editTableName(tableIndex),
-                  icon: const Icon(Icons.edit_note),
-                  visualDensity: VisualDensity.compact,
-                  iconSize: 20,
-                  constraints: const BoxConstraints.tightFor(width: 34, height: 34),
-                ),
-                IconButton(
-                  tooltip: '删除整表',
-                  onPressed: () => _deleteTable(tableIndex),
-                  icon: const Icon(Icons.delete_sweep_outlined),
-                  visualDensity: VisualDensity.compact,
-                  iconSize: 20,
-                  constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    IconButton(
+                      tooltip: '编辑表名',
+                      onPressed: () => _editTableName(tableIndex),
+                      icon: const Icon(Icons.edit_note),
+                      visualDensity: VisualDensity.compact,
+                      iconSize: 20,
+                      constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+                    ),
+                    IconButton(
+                      tooltip: '删除整表',
+                      onPressed: () => _deleteTable(tableIndex),
+                      icon: const Icon(Icons.delete_sweep_outlined),
+                      visualDensity: VisualDensity.compact,
+                      iconSize: 20,
+                      constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+                    ),
+                  ],
                 ),
               ],
             ),
             subtitle: Text(
               '${table.rows.length}行  键 ${table.typeKey}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(fontSize: 11.5, color: Colors.blueGrey.shade700),
             ),
             children: <Widget>[
-              _buildTableHeader(),
-              for (int rowIndex = 0; rowIndex < table.rows.length; rowIndex++)
-                _buildTableRow(tableIndex, rowIndex, table.rows[rowIndex]),
+              if (_multiColumnEnabled)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
+                  child: _buildMultiColumnRows(tableIndex, table),
+                )
+              else ...[
+                _buildTableHeader(),
+                for (int rowIndex = 0; rowIndex < table.rows.length; rowIndex++)
+                  _buildTableRow(tableIndex, rowIndex, table.rows[rowIndex]),
+              ],
               const SizedBox(height: 2),
             ],
           ),
@@ -1678,6 +2006,7 @@ class _BarcodeScannerPageState extends State<BarcodeScannerPage> {
       ),
     );
   }
+
 }
 
 class BarcodeScannerSettingsPage extends StatefulWidget {
@@ -1687,10 +2016,16 @@ class BarcodeScannerSettingsPage extends StatefulWidget {
     required this.decodeIntervalMs,
     required this.holdToScanEnabled,
     required this.holdStopAfterOne,
+    required this.freeFormatEnabled,
+    required this.multiColumnEnabled,
+    required this.multiColumnCount,
     required this.onReminderStepChanged,
     required this.onDecodeIntervalChanged,
     required this.onHoldToScanChanged,
     required this.onHoldStopAfterOneChanged,
+    required this.onFreeFormatChanged,
+    required this.onMultiColumnChanged,
+    required this.onMultiColumnCountChanged,
     required this.onExportPressed,
   });
 
@@ -1698,10 +2033,16 @@ class BarcodeScannerSettingsPage extends StatefulWidget {
   final int decodeIntervalMs;
   final bool holdToScanEnabled;
   final bool holdStopAfterOne;
+  final bool freeFormatEnabled;
+  final bool multiColumnEnabled;
+  final int multiColumnCount;
   final Future<void> Function(int value) onReminderStepChanged;
   final Future<void> Function(int value) onDecodeIntervalChanged;
   final Future<void> Function(bool enabled) onHoldToScanChanged;
   final Future<void> Function(bool enabled) onHoldStopAfterOneChanged;
+  final Future<void> Function(bool enabled) onFreeFormatChanged;
+  final Future<void> Function(bool enabled) onMultiColumnChanged;
+  final Future<void> Function(int value) onMultiColumnCountChanged;
   final Future<void> Function() onExportPressed;
 
   @override
@@ -1715,6 +2056,9 @@ class _BarcodeScannerSettingsPageState
   late int _decodeIntervalMs;
   late bool _holdToScanEnabled;
   late bool _holdStopAfterOne;
+  late bool _freeFormatEnabled;
+  late bool _multiColumnEnabled;
+  late int _multiColumnCount;
 
   @override
   void initState() {
@@ -1723,6 +2067,9 @@ class _BarcodeScannerSettingsPageState
     _decodeIntervalMs = widget.decodeIntervalMs;
     _holdToScanEnabled = widget.holdToScanEnabled;
     _holdStopAfterOne = widget.holdStopAfterOne;
+    _freeFormatEnabled = widget.freeFormatEnabled;
+    _multiColumnEnabled = widget.multiColumnEnabled;
+    _multiColumnCount = widget.multiColumnCount;
   }
 
   Future<void> _changeReminderStep(int value) async {
@@ -1753,6 +2100,28 @@ class _BarcodeScannerSettingsPageState
       _holdStopAfterOne = enabled;
     });
     await widget.onHoldStopAfterOneChanged(enabled);
+  }
+
+  Future<void> _changeFreeFormat(bool enabled) async {
+    setState(() {
+      _freeFormatEnabled = enabled;
+    });
+    await widget.onFreeFormatChanged(enabled);
+  }
+
+  Future<void> _changeMultiColumn(bool enabled) async {
+    setState(() {
+      _multiColumnEnabled = enabled;
+    });
+    await widget.onMultiColumnChanged(enabled);
+  }
+
+  Future<void> _changeMultiColumnCount(int value) async {
+    final int next = value.clamp(1, 6);
+    setState(() {
+      _multiColumnCount = next;
+    });
+    await widget.onMultiColumnCountChanged(next);
   }
 
   String _formatIntervalShort(int ms) {
@@ -1818,6 +2187,40 @@ class _BarcodeScannerSettingsPageState
                     value: _holdStopAfterOne,
                     onChanged: _holdToScanEnabled
                         ? (bool value) => unawaited(_changeHoldStopAfterOne(value))
+                        : null,
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('不受格式约束'),
+                    subtitle: const Text('开启后不按 SN 字符结构分组'),
+                    value: _freeFormatEnabled,
+                    onChanged: (bool value) => unawaited(_changeFreeFormat(value)),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('横向输入多列换行继续添加'),
+                    subtitle: const Text('开启后记录按多列网格显示'),
+                    value: _multiColumnEnabled,
+                    onChanged: (bool value) => unawaited(_changeMultiColumn(value)),
+                  ),
+                  Text('横向输入列数 $_multiColumnCount',
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Slider(
+                    value: _multiColumnCount.toDouble(),
+                    min: 1,
+                    max: 6,
+                    divisions: 5,
+                    label: '$_multiColumnCount',
+                    onChanged: _multiColumnEnabled
+                        ? (double value) {
+                            setState(() {
+                              _multiColumnCount = value.round();
+                            });
+                          }
+                        : null,
+                    onChangeEnd: _multiColumnEnabled
+                        ? (double value) =>
+                            unawaited(_changeMultiColumnCount(value.round()))
                         : null,
                   ),
                 ],
