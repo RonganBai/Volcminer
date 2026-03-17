@@ -62,7 +62,14 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         .where((miner) => miner.diagnosis != null || _isZeroHashOnline(miner))
         .toList(growable: false);
     final total = allMiners.length;
-    final overallHashrateGh = online.fold<double>(
+    final hashrateMiners = allMiners
+        .where(
+          (miner) =>
+              miner.state == TrackedMinerState.online ||
+              miner.state == TrackedMinerState.unresponsive,
+        )
+        .toList(growable: false);
+    final overallHashrateGh = hashrateMiners.fold<double>(
       0,
       (sum, miner) =>
           sum + HashrateUtils.effectiveGh(miner.runtime.ghs5s, miner.runtime.ghsav),
@@ -504,11 +511,8 @@ class _AutoScanProgressRing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ratio = progress.ratio;
-    final isFinalizing =
-        progress.phase == 'finalizing' ||
-        (progress.isRunning &&
-            progress.totalTargets > 0 &&
-            progress.scannedTargets >= progress.totalTargets);
+    final hasConcreteFinalizingStage =
+        progress.phase == 'finalizing' && (progress.stageKey?.isNotEmpty ?? false);
     return Column(
       children: [
         Row(
@@ -568,7 +572,7 @@ class _AutoScanProgressRing extends StatelessWidget {
             ),
           ],
         ),
-        if (isFinalizing) ...[
+        if (hasConcreteFinalizingStage) ...[
           const SizedBox(height: 10),
           LinearProgressIndicator(
             value: progress.stageTotal > 0

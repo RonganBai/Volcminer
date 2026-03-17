@@ -56,12 +56,27 @@ class _MinerCategoryPageState extends ConsumerState<MinerCategoryPage> {
     if (!forceScan || !mounted) {
       return;
     }
+    final messenger = ScaffoldMessenger.of(context);
     final foregroundState = ref.read(scanControllerProvider);
     if (foregroundState.isScanning || foregroundState.isPostProcessing) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizer(ref).t('overview.categoryRefreshBusyForeground'),
+          ),
+        ),
+      );
       return;
     }
     final backgroundProgress = await BackgroundScanService.getAutoScanProgress();
     if (backgroundProgress.isRunning) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizer(ref).t('overview.categoryRefreshBusyBackground'),
+          ),
+        ),
+      );
       return;
     }
     final scanState = ref.read(scanControllerProvider);
@@ -73,6 +88,44 @@ class _MinerCategoryPageState extends ConsumerState<MinerCategoryPage> {
         .toList(growable: false)
       ..sort(IpUtils.compareIpBlocks);
     if (ips.isEmpty) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizer(ref).t('overview.categoryRefreshEmpty'),
+          ),
+        ),
+      );
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        final l10n = AppLocalizer(ref);
+        return AlertDialog(
+          title: Text(l10n.t('overview.categoryRefreshTitle')),
+          content: Text(
+            l10n.t(
+              'overview.categoryRefreshBody',
+              params: {'count': ips.length.toString()},
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(l10n.t('common.cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(l10n.t('common.confirm')),
+            ),
+          ],
+        );
+      },
+    );
+    if (!mounted || confirmed != true) {
       return;
     }
     final settingsState = ref.read(settingsControllerProvider);
@@ -89,6 +142,19 @@ class _MinerCategoryPageState extends ConsumerState<MinerCategoryPage> {
             minerCredential: credential,
             concurrency: settingsState.settings.scanConcurrency,
           );
+      if (!mounted) {
+        return;
+      }
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizer(ref).t(
+              'overview.categoryRefreshDone',
+              params: {'count': ips.length.toString()},
+            ),
+          ),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _refreshing = false);

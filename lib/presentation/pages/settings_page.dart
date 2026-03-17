@@ -81,21 +81,6 @@ class SettingsPage extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 12),
-        SwitchListTile(
-          title: Text(l10n.t('settings.showOffline')),
-          value: settings.showOfflineEnabled,
-          onChanged: (value) => controller.updateSettings(
-            settings.copyWith(showOfflineEnabled: value),
-          ),
-        ),
-        SwitchListTile(
-          title: Text(l10n.t('settings.collectLogs')),
-          value: settings.collectLogsEnabled,
-          onChanged: (value) => controller.updateSettings(
-            settings.copyWith(collectLogsEnabled: value),
-          ),
-        ),
-        const SizedBox(height: 8),
         TextFormField(
           initialValue: settings.refreshIntervalSec.toString(),
           keyboardType: TextInputType.number,

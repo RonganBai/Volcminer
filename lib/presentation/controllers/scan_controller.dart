@@ -506,13 +506,18 @@ class ScanController extends StateNotifier<ScanState> {
         minerCredential,
         concurrency: concurrency,
       );
+      final requestedIps = fetchResult.attemptedIps;
+      final pendingClearRefineCount = _countPendingClearRefineTargets(
+        requestedIps: requestedIps,
+        seenItems: items,
+        maxTargets: manualControllable ? 30 : 10,
+      );
       state = state.copyWith(
         isPostProcessing: true,
         postProcessingStageKey: 'app.scan.finalizing.clearRefine',
         postProcessingCurrent: 0,
-        postProcessingTotal: 0,
+        postProcessingTotal: pendingClearRefineCount,
       );
-      final requestedIps = fetchResult.attemptedIps;
       final clearRefinedIps = await _autoClearRefineForRequestedMisses(
         requestedIps: requestedIps,
         seenItems: items,
@@ -1075,12 +1080,19 @@ class ScanController extends StateNotifier<ScanState> {
             : null,
       );
     }
-    final primaryMatch = _findFirstRuleMatch(normalizedLog, rules);
+    final primaryMatch = _findChunkedPrimaryMatch(
+      normalizedLog,
+      rules.where(
+        (rule) =>
+            rule.code != 'AUTHEN_START_WAIT' && rule.code != 'ERRORMSG',
+      ),
+    );
     if (primaryMatch != null) {
       final primaryRule = primaryMatch.rule;
-      if (primaryRule.inspectEarlierForCategories.isNotEmpty) {
+      if (primaryRule.code == 'CHAIN_BREAK' &&
+          primaryRule.inspectEarlierForCategories.isNotEmpty) {
         final earlierLog = normalizedLog.substring(0, primaryMatch.start);
-        final rootCauseMatch = _findFirstRuleMatch(
+        final rootCauseMatch = _findChunkedPrimaryMatch(
           earlierLog,
           rules.where(
             (rule) =>
@@ -1129,16 +1141,34 @@ class ScanController extends StateNotifier<ScanState> {
     return '${normalized.substring(0, 240)}...';
   }
 
-  _RuleMatch? _findFirstRuleMatch(String log, Iterable<_IssueRule> rules) {
+  _RuleMatch? _findChunkedPrimaryMatch(String log, Iterable<_IssueRule> rules) {
     final normalized = log.replaceAll('\r', '');
     final lines = normalized.split('\n');
-    final genericRules = rules.where((rule) => rule.code == 'ERRORMSG').toList(growable: false);
-    final primaryRules = rules.where((rule) => rule.code != 'ERRORMSG').toList(growable: false);
-    final primaryMatch = _findBestRuleMatchInLines(normalized, lines, primaryRules);
-    if (primaryMatch != null) {
-      return primaryMatch;
+    if (lines.isEmpty) {
+      return null;
     }
-    return _findBestRuleMatchInLines(normalized, lines, genericRules);
+    var chunkEnd = lines.length;
+    while (chunkEnd > 0) {
+      final chunkStart = chunkEnd - 20 < 0 ? 0 : chunkEnd - 20;
+      final chunkLines = lines.sublist(chunkStart, chunkEnd);
+      final hasErrorLine = chunkLines.any(
+        (line) => line.trimLeft().toLowerCase().startsWith('errormsg'),
+      );
+      if (hasErrorLine) {
+        final chunkText = chunkLines.join('\n');
+        final match = _findBestRuleMatchInLines(chunkText, chunkLines, rules);
+        if (match != null) {
+          final absoluteStart = normalized.indexOf(chunkText);
+          return _RuleMatch(
+            rule: match.rule,
+            start: absoluteStart < 0 ? match.start : absoluteStart + match.start,
+            snippet: match.snippet,
+          );
+        }
+      }
+      chunkEnd = chunkStart;
+    }
+    return null;
   }
 
   _RuleMatch? _findBestRuleMatchInLines(
@@ -1146,9 +1176,6 @@ class ScanController extends StateNotifier<ScanState> {
     List<String> lines,
     Iterable<_IssueRule> rules,
   ) {
-    _RuleMatch? bestMatch;
-    int bestLineIndex = -1;
-    int bestMatcherLength = -1;
     for (var lineIndex = lines.length - 1; lineIndex >= 0; lineIndex--) {
       final line = lines[lineIndex];
       final lowerLine = line.toLowerCase();
@@ -1171,27 +1198,14 @@ class ScanController extends StateNotifier<ScanState> {
       if (bestRule != null) {
         final start = lineIndex - 6 < 0 ? 0 : lineIndex - 6;
         final end = lineIndex + 3 >= lines.length ? lines.length - 1 : lineIndex + 3;
-        final candidate = _RuleMatch(
+        return _RuleMatch(
           rule: bestRule,
           start: normalized.indexOf(line),
           snippet: lines.sublist(start, end + 1).join('\n').trim(),
         );
-        final shouldReplace =
-            bestMatch == null ||
-            bestRule.priority > bestMatch.rule.priority ||
-            (bestRule.priority == bestMatch.rule.priority &&
-                lineIndex > bestLineIndex) ||
-            (bestRule.priority == bestMatch.rule.priority &&
-                lineIndex == bestLineIndex &&
-                (bestMatcher?.length ?? 0) > bestMatcherLength);
-        if (shouldReplace) {
-          bestMatch = candidate;
-          bestLineIndex = lineIndex;
-          bestMatcherLength = bestMatcher?.length ?? 0;
-        }
       }
     }
-    return bestMatch;
+    return null;
   }
 
   _RuleMatch? _matchAuthenRecoveryWait(String log, List<_IssueRule> rules) {
@@ -1443,6 +1457,35 @@ class ScanController extends StateNotifier<ScanState> {
       postProcessingTotal: limitedTargets.length,
     );
     return result.success ? result.targets.toSet() : limitedTargets.toSet();
+  }
+
+  int _countPendingClearRefineTargets({
+    required Set<String> requestedIps,
+    required List<MinerScanItem> seenItems,
+    required int maxTargets,
+  }) {
+    final seenIps = seenItems.map((item) => item.worker.ip).toSet();
+    var count = 0;
+    for (final segment in state.segments) {
+      for (final miner in segment.miners) {
+        if (!requestedIps.contains(miner.ip) || seenIps.contains(miner.ip)) {
+          continue;
+        }
+        if (miner.retiredAt != null) {
+          continue;
+        }
+        final shouldClear =
+            miner.missedScans == 0 ||
+            (miner.missedScans == 1 && !miner.clearRefineAttempted);
+        if (shouldClear) {
+          count += 1;
+          if (count >= maxTargets) {
+            return maxTargets;
+          }
+        }
+      }
+    }
+    return count;
   }
 
   TrackedMiner _advanceMissingMinerState(

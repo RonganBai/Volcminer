@@ -4,12 +4,7 @@
     "category": "power",
     "priority": 100,
     "matches": [
-      "voltage < 0.75*target_voltage",
-      "powervout_read: 0.000000",
-      "powervout_read: 0 0",
-      "checksensedeviceid",
-      "checkvoltagesensedeviceid",
-      "vbus:3"
+      "voltage < 0.75*target_voltage"
     ],
     "reason": "The power supply is damaged and output voltage is far below the target range.",
     "solution": "Replace the power supply and inspect the output cables and input power before powering on again."
