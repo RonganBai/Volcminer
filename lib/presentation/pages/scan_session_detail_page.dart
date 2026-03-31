@@ -1,18 +1,21 @@
+import 'package:volcminer/core/utils/abnormal_miner_utils.dart';
 import 'package:volcminer/core/utils/hashrate_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+import 'package:volcminer/core/utils/eastern_time_utils.dart';
 import 'package:volcminer/core/utils/ip_utils.dart';
 import 'package:volcminer/domain/entities/credential.dart';
 import 'package:volcminer/domain/entities/scan_segment_record.dart';
 import 'package:volcminer/domain/entities/tracked_miner.dart';
 import 'package:volcminer/presentation/localization/app_localizer.dart';
+import 'package:volcminer/presentation/localization/legacy_zh_texts.dart';
 import 'package:volcminer/presentation/localization/issue_localizer.dart';
 import 'package:volcminer/presentation/pages/miner_detail_page.dart';
+import 'package:volcminer/presentation/pages/multi_pool_config_page.dart';
 import 'package:volcminer/presentation/pages/pool_config_page.dart';
 import 'package:volcminer/presentation/providers/app_providers.dart';
 
-enum _SegmentFilter { all, online, unresponsive, offline, retired }
+enum _SegmentFilter { all, online, unresponsive, abnormal, offline, retired }
 
 class ScanSessionDetailPage extends ConsumerStatefulWidget {
   const ScanSessionDetailPage({super.key, required this.segment});
@@ -63,355 +66,534 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.t(
-                    'segment.lastScan',
-                    params: {
-                      'time':
-                          DateFormat('yyyy-MM-dd HH:mm:ss').format(currentSegment.updatedAt),
-                    },
-                  ),
-                ),
-                Text(l10n.t('results.ipBlock', params: {'scope': displayScope})),
-                Text(
-                  l10n.t(
-                    'segment.onlineCount',
-                    params: {'count': currentSegment.onlineCount.toString()},
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _filterChip(l10n.t('segment.filter.all'), _SegmentFilter.all),
-                    _filterChip(
-                      l10n.t('segment.filter.online'),
-                      _SegmentFilter.online,
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _filterChip(
+                            l10n.t('segment.filter.all'),
+                            _SegmentFilter.all,
+                            color: const Color(0xFF2F67D8),
+                            icon: Icons.apps_rounded,
+                          ),
+                          const SizedBox(width: 8),
+                          _filterChip(
+                            l10n.t('segment.filter.online'),
+                            _SegmentFilter.online,
+                            color: const Color(0xFF2EAF62),
+                            icon: Icons.wifi_rounded,
+                          ),
+                          const SizedBox(width: 8),
+                          _filterChip(
+                            l10n.t('segment.filter.unresponsive'),
+                            _SegmentFilter.unresponsive,
+                            color: const Color(0xFFF0A21C),
+                            icon: Icons.portable_wifi_off_rounded,
+                          ),
+                          const SizedBox(width: 8),
+                          _filterChip(
+                            l10n.t('segment.filter.abnormal'),
+                            _SegmentFilter.abnormal,
+                            color: const Color(0xFFD77700),
+                            icon: Icons.warning_amber_rounded,
+                          ),
+                          const SizedBox(width: 8),
+                          _filterChip(
+                            l10n.t('segment.filter.offline'),
+                            _SegmentFilter.offline,
+                            color: const Color(0xFFE15B64),
+                            icon: Icons.power_off_rounded,
+                          ),
+                          const SizedBox(width: 8),
+                          _filterChip(
+                            l10n.t('segment.filter.retired'),
+                            _SegmentFilter.retired,
+                            color: const Color(0xFF6F748B),
+                            icon: Icons.inventory_2_outlined,
+                          ),
+                        ],
+                      ),
                     ),
-                    _filterChip(
-                      l10n.t('segment.filter.unresponsive'),
-                      _SegmentFilter.unresponsive,
-                    ),
-                    _filterChip(
-                      l10n.t('segment.filter.offline'),
-                      _SegmentFilter.offline,
-                    ),
-                    _filterChip(
-                      l10n.t('segment.filter.retired'),
-                      _SegmentFilter.retired,
-                    ),
+                    const SizedBox(height: 12),
+                    if (_selectionMode) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF7FBF9),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: const Color(0xFFE1ECE7)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: const Color(
+                                      0xFF2EAF62,
+                                    ).withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(9),
+                                  ),
+                                  child: const Icon(
+                                    Icons.checklist_rounded,
+                                    color: Color(0xFF2EAF62),
+                                    size: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    l10n.t(
+                                      'segment.selected',
+                                      params: {
+                                        'count': _selectedVisibleCount(
+                                          miners,
+                                        ).toString(),
+                                      },
+                                    ),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF243042),
+                                    ),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: miners.isEmpty
+                                      ? null
+                                      : () => _toggleSelectAll(miners),
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 6,
+                                    ),
+                                    minimumSize: const Size(0, 32),
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  child: Text(l10n.t('segment.selectAll')),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      _selectedIps.clear();
+                                      _selectionMode = false;
+                                    });
+                                  },
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 6,
+                                    ),
+                                    minimumSize: const Size(0, 32),
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  child: Text(l10n.t('segment.cancelSelect')),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _BatchActionButton(
+                                    label: _batchBusy
+                                        ? l10n.t('segment.batchLedOnBusy')
+                                        : l10n.t('segment.batchLedOn'),
+                                    icon: Icons.lightbulb_outline,
+                                    busy: _batchBusy,
+                                    filled: true,
+                                    onPressed:
+                                        _batchBusy || _selectedIps.isEmpty
+                                        ? null
+                                        : () => _confirmBatchLedOn(
+                                            context,
+                                            credential,
+                                            l10n,
+                                          ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _BatchActionButton(
+                                    label: _batchOffBusy
+                                        ? l10n.t('segment.batchLedOffBusy')
+                                        : l10n.t('segment.batchLedOff'),
+                                    icon: Icons.lightbulb_circle_outlined,
+                                    busy: _batchOffBusy,
+                                    tonal: true,
+                                    onPressed:
+                                        _batchOffBusy || _selectedIps.isEmpty
+                                        ? null
+                                        : () => _confirmBatchLedOff(
+                                            context,
+                                            credential,
+                                            l10n,
+                                          ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _BatchActionButton(
+                                    label: l10n.t(
+                                      'segment.poolConfig',
+                                      params: {
+                                        'count': _selectedIps.length.toString(),
+                                      },
+                                    ),
+                                    icon: Icons.swap_horiz_outlined,
+                                    onPressed: _selectedIps.isEmpty
+                                        ? null
+                                        : () {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute<void>(
+                                                builder: (_) {
+                                                  final targetIps = _selectedIps
+                                                      .toList(growable: false);
+                                                  if (targetIps.length <= 1) {
+                                                    return PoolConfigPage(
+                                                      targetIps: targetIps,
+                                                    );
+                                                  }
+                                                  return MultiPoolConfigPage(
+                                                    targetIps: targetIps,
+                                                  );
+                                                },
+                                              ),
+                                            );
+                                          },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _BatchActionButton(
+                                    label: _batchClearBusy
+                                        ? l10n.t('segment.batchClearBusy')
+                                        : l10n.t('segment.batchClear'),
+                                    icon: Icons.cleaning_services_outlined,
+                                    busy: _batchClearBusy,
+                                    onPressed:
+                                        _batchClearBusy || _selectedIps.isEmpty
+                                        ? null
+                                        : () => _confirmBatchAction(
+                                            context: context,
+                                            title: l10n.t(
+                                              'segment.confirmClearTitle',
+                                            ),
+                                            message: l10n.t(
+                                              'segment.confirmClearMessage',
+                                              params: {
+                                                'count': _selectedIps.length
+                                                    .toString(),
+                                              },
+                                            ),
+                                            cancelLabel: l10n.t(
+                                              'common.cancel',
+                                            ),
+                                            confirmLabel: l10n.t(
+                                              'common.confirm',
+                                            ),
+                                            busySetter: (value) => setState(
+                                              () => _batchClearBusy = value,
+                                            ),
+                                            action: () => ref
+                                                .read(
+                                                  scanControllerProvider
+                                                      .notifier,
+                                                )
+                                                .clearRefineForIps(
+                                                  _selectedIps.toList(
+                                                    growable: false,
+                                                  ),
+                                                  credential,
+                                                ),
+                                          ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            SizedBox(
+                              width: double.infinity,
+                              child: _BatchActionButton(
+                                label: _batchRebootBusy
+                                    ? l10n.t('segment.batchRebootBusy')
+                                    : l10n.t('segment.batchReboot'),
+                                icon: Icons.restart_alt,
+                                busy: _batchRebootBusy,
+                                filled: true,
+                                onPressed:
+                                    _batchRebootBusy || _selectedIps.isEmpty
+                                    ? null
+                                    : () => _confirmBatchAction(
+                                        context: context,
+                                        title: l10n.t(
+                                          'segment.confirmRebootTitle',
+                                        ),
+                                        message: l10n.t(
+                                          'segment.confirmRebootMessage',
+                                          params: {
+                                            'count': _selectedIps.length
+                                                .toString(),
+                                          },
+                                        ),
+                                        cancelLabel: l10n.t('common.cancel'),
+                                        confirmLabel: l10n.t('common.confirm'),
+                                        busySetter: (value) => setState(
+                                          () => _batchRebootBusy = value,
+                                        ),
+                                        action: () => ref
+                                            .read(
+                                              scanControllerProvider.notifier,
+                                            )
+                                            .rebootForIps(
+                                              _selectedIps.toList(
+                                                growable: false,
+                                              ),
+                                              credential,
+                                            ),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else
+                      const Text(
+                        LegacyZhTexts.segmentLongPressHint,
+                        style: TextStyle(
+                          color: Color(0xFF6F748B),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                if (_selectionMode) ...[
-                  Row(
-                    children: [
-                      Text(
-                        l10n.t(
-                          'segment.selected',
-                          params: {
-                            'count': _selectedVisibleCount(miners).toString(),
-                          },
-                        ),
-                      ),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: miners.isEmpty ? null : () => _toggleSelectAll(miners),
-                        child: Text(l10n.t('segment.selectAll')),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _selectedIps.clear();
-                            _selectionMode = false;
-                          });
-                        },
-                        child: Text(l10n.t('segment.cancelSelect')),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: _batchBusy || _selectedIps.isEmpty
-                              ? null
-                              : () => _confirmBatchLedOn(context, credential, l10n),
-                          icon: _batchBusy
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(Icons.lightbulb_outline),
-                          label: Text(
-                            _batchBusy
-                                ? l10n.t('segment.batchLedOnBusy')
-                                : l10n.t('segment.batchLedOn'),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: FilledButton.tonalIcon(
-                          onPressed: _batchOffBusy || _selectedIps.isEmpty
-                              ? null
-                              : () => _confirmBatchLedOff(context, credential, l10n),
-                          icon: _batchOffBusy
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(Icons.lightbulb_circle_outlined),
-                          label: Text(
-                            _batchOffBusy
-                                ? l10n.t('segment.batchLedOffBusy')
-                                : l10n.t('segment.batchLedOff'),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _selectedIps.isEmpty
-                              ? null
-                              : () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                      builder: (_) => PoolConfigPage(
-                                        targetIps: _selectedIps.toList(growable: false),
-                                      ),
-                                    ),
-                                  );
-                                },
-                          icon: const Icon(Icons.swap_horiz_outlined),
-                          label: Text(
-                            l10n.t(
-                              'segment.poolConfig',
-                              params: {'count': _selectedIps.length.toString()},
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _batchClearBusy || _selectedIps.isEmpty
-                              ? null
-                              : () => _confirmBatchAction(
-                                  context: context,
-                                  title: l10n.t('segment.confirmClearTitle'),
-                                  message: l10n.t(
-                                    'segment.confirmClearMessage',
-                                    params: {'count': _selectedIps.length.toString()},
-                                  ),
-                                  cancelLabel: l10n.t('common.cancel'),
-                                  confirmLabel: l10n.t('common.confirm'),
-                                  busySetter: (value) =>
-                                      setState(() => _batchClearBusy = value),
-                                  action: () => ref
-                                      .read(scanControllerProvider.notifier)
-                                      .clearRefineForIps(
-                                        _selectedIps.toList(growable: false),
-                                        credential,
-                                      ),
-                                ),
-                          icon: _batchClearBusy
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(Icons.cleaning_services_outlined),
-                          label: Text(
-                            _batchClearBusy
-                                ? l10n.t('segment.batchClearBusy')
-                                : l10n.t('segment.batchClear'),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _batchRebootBusy || _selectedIps.isEmpty
-                          ? null
-                          : () => _confirmBatchAction(
-                              context: context,
-                              title: l10n.t('segment.confirmRebootTitle'),
-                              message: l10n.t(
-                                'segment.confirmRebootMessage',
-                                params: {'count': _selectedIps.length.toString()},
-                              ),
-                              cancelLabel: l10n.t('common.cancel'),
-                              confirmLabel: l10n.t('common.confirm'),
-                              busySetter: (value) =>
-                                  setState(() => _batchRebootBusy = value),
-                              action: () => ref
-                                  .read(scanControllerProvider.notifier)
-                                  .rebootForIps(
-                                    _selectedIps.toList(growable: false),
-                                    credential,
-                                  ),
-                            ),
-                      icon: _batchRebootBusy
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.restart_alt),
-                      label: Text(
-                        _batchRebootBusy
-                            ? l10n.t('segment.batchRebootBusy')
-                            : l10n.t('segment.batchReboot'),
-                      ),
-                    ),
-                  ),
-                ] else
-                  Text(
-                    l10n.t('segment.longPressHint'),
-                    style: const TextStyle(color: Colors.black54),
-                  ),
-              ],
+              ),
             ),
           ),
-          const Divider(height: 1),
           Expanded(
-            child: ListView.separated(
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               itemCount: miners.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (context, index) {
                 final miner = miners[index];
                 final selected = _selectedIps.contains(miner.ip);
                 final ledActive = ledActiveIps.contains(miner.ip);
-                final tile = Container(
-                  color: ledActive
-                      ? Theme.of(context).colorScheme.primaryContainer
-                      : null,
-                  child: ListTile(
-                    leading: _selectionMode
-                        ? Checkbox(
-                            value: selected,
-                            onChanged: (_) => _toggleItemSelection(miner.ip),
-                          )
+                final showDroppedBoardBadge = miner.hasDroppedBoardIssue;
+                final showUnstableBadge =
+                    (miner.state == TrackedMinerState.offline ||
+                        miner.state == TrackedMinerState.pendingRetire) &&
+                    miner.offlineEventCount >= 3;
+                final issueBadgeLabel = miner.diagnosis == null
+                    ? null
+                    : IssueLocalizer.shortBadge(l10n, miner.diagnosis!);
+                final tile = Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Card(
+                    color: ledActive
+                        ? Theme.of(context).colorScheme.primaryContainer
                         : null,
-                    title: Text(miner.ip),
-                    subtitle: Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            children: [
-                              if (_statusDotColor(miner) != null) ...[
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: _statusDotColor(miner),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                              ],
-                              Expanded(
-                                child: Text(
-                                  '${_stateLabel(miner, l10n)} | ${miner.runtime.ghs5s}/${miner.runtime.ghsav} | Last seen ${DateFormat('MM-dd HH:mm').format(miner.runtime.fetchedAt)}${ledActive ? ' | ${l10n.t('segment.ledOnTag')}' : ''}',
-                                ),
-                              ),
-                            ],
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onLongPress: () {
+                        setState(() {
+                          _selectionMode = true;
+                          _selectedIps.add(miner.ip);
+                        });
+                      },
+                      onTap: () {
+                        if (_selectionMode) {
+                          _toggleItemSelection(miner.ip);
+                          return;
+                        }
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => MinerDetailPage(miner: miner),
                           ),
-                          const SizedBox(height: 6),
-                          _HashrateBar(miner: miner),
-                          if (miner.diagnosis != null) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              l10n.t(
-                                'segment.issueReason',
-                                params: {
-                                  'reason': IssueLocalizer.reason(
-                                    l10n,
-                                    miner.diagnosis!,
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (_selectionMode) ...[
+                                  Checkbox(
+                                    value: selected,
+                                    onChanged: (_) =>
+                                        _toggleItemSelection(miner.ip),
                                   ),
-                                },
-                              ),
-                              style: const TextStyle(
-                                color: Colors.orange,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              l10n.t(
-                                'segment.issueSolution',
-                                params: {
-                                  'solution': IssueLocalizer.solution(
-                                    l10n,
-                                    miner.diagnosis!,
+                                  const SizedBox(width: 6),
+                                ] else ...[
+                                  Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: const Color(
+                                        0xFF2F67D8,
+                                      ).withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Icon(
+                                      Icons.memory_rounded,
+                                      color: Color(0xFF2F67D8),
+                                      size: 18,
+                                    ),
                                   ),
-                                },
-                              ),
-                              style: const TextStyle(color: Colors.black54),
+                                  const SizedBox(width: 10),
+                                ],
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        miner.ip,
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        l10n.t(
+                                          'overview.scope',
+                                          params: {
+                                            'scope': currentSegment.scope,
+                                          },
+                                        ),
+                                        style: const TextStyle(
+                                          color: Color(0xFF6F748B),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    _SegmentStatusPill(
+                                      label: _stateLabel(miner, l10n),
+                                      color: _statusPillColor(miner),
+                                    ),
+                                    if (ledActive) ...[
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFFF5E6),
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          l10n.t('segment.ledOnTag'),
+                                          style: const TextStyle(
+                                            color: Color(0xFFD77700),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ],
                             ),
-                            if (IssueLocalizer.snippetSummary(l10n, miner.diagnosis!) != null) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                IssueLocalizer.snippetSummary(l10n, miner.diagnosis!)!,
-                                style: const TextStyle(color: Colors.black54),
+                            if (showDroppedBoardBadge ||
+                                showUnstableBadge ||
+                                issueBadgeLabel != null) ...[
+                              const SizedBox(height: 10),
+                              _SegmentMinerBadges(
+                                showUnstableBadge: showUnstableBadge,
+                                showDroppedBoardBadge: showDroppedBoardBadge,
+                                issueBadgeLabel: issueBadgeLabel,
+                                l10n: l10n,
                               ),
                             ],
-                            if (IssueLocalizer.secondaryReason(l10n, miner.diagnosis!) != null) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                l10n.t(
-                                  'segment.issueSecondary',
-                                  params: {
-                                    'reason': IssueLocalizer.secondaryReason(
-                                      l10n,
-                                      miner.diagnosis!,
-                                    )!,
-                                  },
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _SegmentMinerInfoTile(
+                                    icon: Icons.flash_on_rounded,
+                                    color: const Color(0xFF2F67D8),
+                                    label:
+                                        LegacyZhTexts.minerFiveSecondHashrate,
+                                    value: miner.runtime.ghs5s,
+                                  ),
                                 ),
-                                style: const TextStyle(color: Colors.black54),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _SegmentMinerInfoTile(
+                                    icon: Icons.update_rounded,
+                                    color: const Color(0xFF6F748B),
+                                    label: LegacyZhTexts.segmentLastScan,
+                                    value: EasternTimeUtils.format(
+                                      miner.runtime.fetchedAt,
+                                      pattern: 'yyyy-MM-dd HH:mm:ss',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            _HashrateBar(miner: miner),
+                            if (miner.diagnosis != null) ...[
+                              const SizedBox(height: 10),
+                              Text(
+                                IssueLocalizer.reason(l10n, miner.diagnosis!),
+                                style: const TextStyle(
+                                  color: Colors.orange,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
+                              if (IssueLocalizer.snippetSummary(
+                                    l10n,
+                                    miner.diagnosis!,
+                                  ) !=
+                                  null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  IssueLocalizer.snippetSummary(
+                                    l10n,
+                                    miner.diagnosis!,
+                                  )!,
+                                  style: const TextStyle(
+                                    color: Color(0xFF6F748B),
+                                  ),
+                                ),
+                              ],
                             ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
-                    trailing: _selectionMode ? null : const Icon(Icons.chevron_right),
-                    selected: _selectionMode && selected,
-                    onLongPress: () {
-                      setState(() {
-                        _selectionMode = true;
-                        _selectedIps.add(miner.ip);
-                      });
-                    },
-                    onTap: () {
-                      if (_selectionMode) {
-                        _toggleItemSelection(miner.ip);
-                        return;
-                      }
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => MinerDetailPage(miner: miner),
-                        ),
-                      );
-                    },
                   ),
                 );
 
@@ -426,7 +608,10 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
                     alignment: Alignment.centerRight,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     color: Colors.red.shade400,
-                    child: const Icon(Icons.delete_outline, color: Colors.white),
+                    child: const Icon(
+                      Icons.delete_outline,
+                      color: Colors.white,
+                    ),
                   ),
                   confirmDismiss: (_) async {
                     final confirmed = await showDialog<bool>(
@@ -472,11 +657,40 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
     );
   }
 
-  ChoiceChip _filterChip(String label, _SegmentFilter value) {
+  Widget _filterChip(
+    String label,
+    _SegmentFilter value, {
+    required Color color,
+    required IconData icon,
+  }) {
     return ChoiceChip(
-      label: Text(label),
+      avatar: Icon(
+        icon,
+        size: 14,
+        color: _filter == value ? color : color.withValues(alpha: 0.8),
+      ),
+      label: Text(
+        label,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+          color: _filter == value ? color : const Color(0xFF6F748B),
+        ),
+      ),
       selected: _filter == value,
       showCheckmark: false,
+      selectedColor: color.withValues(alpha: 0.14),
+      backgroundColor: Colors.white,
+      side: BorderSide(
+        color: _filter == value
+            ? color.withValues(alpha: 0.35)
+            : const Color(0xFFCDD5E1),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       onSelected: (_) => setState(() => _filter = value),
     );
   }
@@ -496,7 +710,9 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
       cancelLabel: l10n.t('common.cancel'),
       confirmLabel: l10n.t('common.confirm'),
       busySetter: (value) => setState(() => _batchBusy = value),
-      action: () => ref.read(scanControllerProvider.notifier).toggleLedForIps(
+      action: () => ref
+          .read(scanControllerProvider.notifier)
+          .toggleLedForIps(
             _selectedIps.toList(growable: false),
             true,
             credential,
@@ -519,7 +735,9 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
       cancelLabel: l10n.t('common.cancel'),
       confirmLabel: l10n.t('common.confirm'),
       busySetter: (value) => setState(() => _batchOffBusy = value),
-      action: () => ref.read(scanControllerProvider.notifier).toggleLedForIps(
+      action: () => ref
+          .read(scanControllerProvider.notifier)
+          .toggleLedForIps(
             _selectedIps.toList(growable: false),
             false,
             credential,
@@ -604,20 +822,27 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
   }
 
   List<TrackedMiner> _visibleMiners(List<TrackedMiner> miners) {
-    return miners.where((miner) {
-      return switch (_filter) {
-        _SegmentFilter.all => true,
-        _SegmentFilter.online => miner.state == TrackedMinerState.online,
-        _SegmentFilter.unresponsive =>
-          miner.state == TrackedMinerState.unresponsive,
-        _SegmentFilter.offline => miner.state == TrackedMinerState.offline,
-        _SegmentFilter.retired => miner.state == TrackedMinerState.pendingRetire,
-      };
-    }).toList(growable: false)
+    return miners
+        .where((miner) {
+          return switch (_filter) {
+            _SegmentFilter.all => true,
+            _SegmentFilter.online => miner.state == TrackedMinerState.online,
+            _SegmentFilter.unresponsive =>
+              miner.state == TrackedMinerState.unresponsive,
+            _SegmentFilter.abnormal => AbnormalMinerUtils.isAbnormal(miner),
+            _SegmentFilter.offline => miner.state == TrackedMinerState.offline,
+            _SegmentFilter.retired =>
+              miner.state == TrackedMinerState.pendingRetire,
+          };
+        })
+        .toList(growable: false)
       ..sort((a, b) => IpUtils.ipToInt(a.ip).compareTo(IpUtils.ipToInt(b.ip)));
   }
 
   String _stateLabel(TrackedMiner miner, AppLocalizer l10n) {
+    if (_filter == _SegmentFilter.abnormal) {
+      return l10n.t('segment.filter.abnormal');
+    }
     return switch (miner.state) {
       TrackedMinerState.online => l10n.t('segment.filter.online'),
       TrackedMinerState.unresponsive => l10n.t('segment.filter.unresponsive'),
@@ -627,44 +852,314 @@ class _ScanSessionDetailPageState extends ConsumerState<ScanSessionDetailPage> {
   }
 }
 
-class _HashrateBar extends StatelessWidget {
-  const _HashrateBar({required this.miner});
+class _BatchActionButton extends StatelessWidget {
+  const _BatchActionButton({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+    this.busy = false,
+    this.filled = false,
+    this.tonal = false,
+  });
 
-  final TrackedMiner miner;
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final bool busy;
+  final bool filled;
+  final bool tonal;
 
   @override
   Widget build(BuildContext context) {
-    final hashrate = HashrateUtils.effectiveGh(miner.runtime.ghs5s, miner.runtime.ghsav);
-    final stateIndex = hashrate > 14
-        ? 0
-        : hashrate > 5
-            ? 1
-            : 2;
-    const colors = [Colors.green, Colors.amber, Colors.red];
+    final Widget iconWidget = busy
+        ? const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : Icon(icon, size: 16);
 
-    return Row(
+    final Widget child = Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        for (var i = 0; i < colors.length; i++) ...[
-          Expanded(
-            child: Container(
-              height: 6,
-              decoration: BoxDecoration(
-                color: colors[i].withValues(alpha: i == stateIndex ? 1 : 0.22),
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
+        iconWidget,
+        const SizedBox(width: 5),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
           ),
-          if (i != colors.length - 1) const SizedBox(width: 4),
-        ],
+        ),
       ],
+    );
+
+    final ButtonStyle style =
+        (filled || tonal
+                ? FilledButton.styleFrom()
+                : OutlinedButton.styleFrom())
+            .copyWith(
+              minimumSize: const WidgetStatePropertyAll(Size(122, 34)),
+              padding: const WidgetStatePropertyAll(
+                EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+              ),
+              shape: WidgetStatePropertyAll(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+              ),
+              backgroundColor: tonal
+                  ? const WidgetStatePropertyAll(Color(0xFFEAF3FF))
+                  : null,
+              foregroundColor: tonal
+                  ? const WidgetStatePropertyAll(Color(0xFF2F67D8))
+                  : null,
+            );
+
+    if (filled) {
+      return SizedBox(
+        width: double.infinity,
+        child: FilledButton(onPressed: onPressed, style: style, child: child),
+      );
+    }
+    if (tonal) {
+      return SizedBox(
+        width: double.infinity,
+        child: FilledButton.tonal(
+          onPressed: onPressed,
+          style: style,
+          child: child,
+        ),
+      );
+    }
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(onPressed: onPressed, style: style, child: child),
     );
   }
 }
 
-Color? _statusDotColor(TrackedMiner miner) {
+class _HashrateBar extends StatelessWidget {
+  const _HashrateBar({required this.miner});
+
+  final TrackedMiner miner;
+  static const double _maxDisplayGh = 16;
+
+  @override
+  Widget build(BuildContext context) {
+    final hashrate = HashrateUtils.effectiveGh(
+      miner.runtime.ghs5s,
+      miner.runtime.ghsav,
+    );
+    final clamped = hashrate.clamp(0, _maxDisplayGh).toDouble();
+    final ratio = _maxDisplayGh <= 0 ? 0.0 : (clamped / _maxDisplayGh);
+    final isZero = hashrate <= 0;
+
+    return Container(
+      width: double.infinity,
+      height: 14,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: isZero
+            ? [
+                BoxShadow(
+                  color: Colors.redAccent.withValues(alpha: 0.45),
+                  blurRadius: 8,
+                  spreadRadius: 0.5,
+                ),
+              ]
+            : null,
+      ),
+      child: Container(
+        height: 14,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: Colors.black, width: 1.4),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final currentWidth = constraints.maxWidth * ratio;
+              return Stack(
+                children: [
+                  Container(
+                    width: constraints.maxWidth,
+                    height: constraints.maxHeight,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Color(0xFFE53935),
+                          Color(0xFFFDD835),
+                          Color(0xFF43A047),
+                        ],
+                        stops: [0.0, 0.5, 1.0],
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        width: constraints.maxWidth - currentWidth,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Color _statusPillColor(TrackedMiner miner) {
   return switch (miner.state) {
-    TrackedMinerState.online => Colors.green,
-    TrackedMinerState.offline => Colors.red,
-    _ => null,
+    TrackedMinerState.online => const Color(0xFF2EAF62),
+    TrackedMinerState.unresponsive => const Color(0xFFF0A21C),
+    TrackedMinerState.offline => const Color(0xFFE15B64),
+    _ => const Color(0xFF6F748B),
   };
+}
+
+class _SegmentStatusPill extends StatelessWidget {
+  const _SegmentStatusPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+class _SegmentMinerInfoTile extends StatelessWidget {
+  const _SegmentMinerInfoTile({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 15, color: color),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF6F748B),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SegmentMinerBadges extends StatelessWidget {
+  const _SegmentMinerBadges({
+    required this.showUnstableBadge,
+    required this.showDroppedBoardBadge,
+    required this.issueBadgeLabel,
+    required this.l10n,
+  });
+
+  final bool showUnstableBadge;
+  final bool showDroppedBoardBadge;
+  final String? issueBadgeLabel;
+  final AppLocalizer l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final badges = <Widget>[
+      if (issueBadgeLabel != null)
+        _MinerBadge(label: issueBadgeLabel!, color: Colors.redAccent),
+      if (showDroppedBoardBadge)
+        _MinerBadge(
+          label: l10n.t('segment.badge.droppedBoard'),
+          color: Colors.deepOrange,
+        ),
+      if (showUnstableBadge)
+        _MinerBadge(
+          label: l10n.t('segment.badge.unstable'),
+          color: Colors.orange,
+        ),
+    ];
+    return Wrap(spacing: 6, runSpacing: 6, children: badges);
+  }
+}
+
+class _MinerBadge extends StatelessWidget {
+  const _MinerBadge({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
 }

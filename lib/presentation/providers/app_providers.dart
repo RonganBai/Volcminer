@@ -1,8 +1,8 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-import 'package:isar/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:volcminer/data/datasources/aggregator_remote_data_source.dart';
 import 'package:volcminer/data/datasources/hash7_remote_data_source.dart';
 import 'package:volcminer/data/datasources/isar_local_data_source.dart';
 import 'package:volcminer/data/datasources/miner_local_data_source.dart';
@@ -26,10 +26,6 @@ import 'package:volcminer/presentation/localization/app_language.dart';
 import 'package:volcminer/presentation/controllers/scan_controller.dart';
 import 'package:volcminer/presentation/controllers/scan_view_controller.dart';
 import 'package:volcminer/presentation/controllers/settings_controller.dart';
-
-final isarProvider = Provider<Isar>((_) {
-  throw UnimplementedError('isarProvider must be overridden in main()');
-});
 
 final httpClientProvider = Provider<http.Client>((ref) {
   final client = http.Client();
@@ -73,11 +69,16 @@ final appLanguageProvider =
     });
 
 final isarLocalDataSourceProvider = Provider<IsarLocalDataSource>((ref) {
-  return IsarLocalDataSource(ref.watch(isarProvider));
+  return IsarLocalDataSource();
 });
 
 final hash7RemoteDataSourceProvider = Provider<Hash7RemoteDataSource>((ref) {
   return Hash7RemoteDataSource(ref.watch(httpClientProvider));
+});
+
+final aggregatorRemoteDataSourceProvider =
+    Provider<AggregatorRemoteDataSource>((ref) {
+  return AggregatorRemoteDataSource(ref.watch(httpClientProvider));
 });
 
 final minerLocalDataSourceProvider = Provider<MinerLocalDataSource>((ref) {
@@ -85,7 +86,10 @@ final minerLocalDataSourceProvider = Provider<MinerLocalDataSource>((ref) {
 });
 
 final scanViewRepositoryProvider = Provider<ScanViewRepository>((ref) {
-  return ScanViewRepositoryImpl(ref.watch(isarLocalDataSourceProvider));
+  return ScanViewRepositoryImpl(
+    ref.watch(isarLocalDataSourceProvider),
+    ref.watch(aggregatorRemoteDataSourceProvider),
+  );
 });
 
 final poolSearchRepositoryProvider = Provider<PoolSearchRepository>((ref) {
@@ -155,6 +159,7 @@ final scanControllerProvider = StateNotifierProvider<ScanController, ScanState>(
       ref.watch(rebootMinerUseCaseProvider),
       ref.watch(applyPoolConfigUseCaseProvider),
       ref.watch(isarLocalDataSourceProvider),
+      ref.watch(aggregatorRemoteDataSourceProvider),
     );
     controller.loadPersistedState();
     return controller;

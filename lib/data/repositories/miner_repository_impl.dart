@@ -1,8 +1,8 @@
 import 'package:volcminer/data/datasources/miner_local_data_source.dart';
 import 'package:volcminer/domain/entities/credential.dart';
 import 'package:volcminer/domain/entities/led_toggle_result.dart';
+import 'package:volcminer/domain/entities/miner_pool_config_snapshot.dart';
 import 'package:volcminer/domain/entities/miner_runtime.dart';
-import 'package:volcminer/domain/entities/pool_slot_config.dart';
 import 'package:volcminer/domain/repositories/miner_repository.dart';
 
 class MinerRepositoryImpl implements MinerRepository {
@@ -64,14 +64,12 @@ class MinerRepositoryImpl implements MinerRepository {
   @override
   Future<LedToggleResult> applyPoolConfig(
     List<String> ips,
-    List<PoolSlotConfig> poolSlots,
-    Map<int, String> slotPasswords,
+    MinerPoolConfigSnapshot snapshot,
     MinerCredential credential,
   ) async {
     return _runForIps(
       ips: ips,
-      command: (ip) =>
-          _local.applyPoolConfig(ip, poolSlots, slotPasswords, credential),
+      command: (ip) => _local.applyPoolConfig(ip, snapshot, credential),
       successMessage: 'Pool configuration applied.',
     );
   }

@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:volcminer/presentation/localization/app_language.dart';
 import 'package:volcminer/presentation/localization/app_localizer.dart';
+import 'package:volcminer/presentation/localization/legacy_zh_texts.dart';
+import 'package:volcminer/presentation/pages/personalization_settings_page.dart';
+import 'package:volcminer/presentation/pages/sub_account_page.dart';
 import 'package:volcminer/presentation/providers/app_providers.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
   static const List<double> _fontScaleOptions = [0.85, 1.0, 1.15, 1.3];
-  static const List<int> _concurrencyOptions = [50, 60, 100, 200];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -22,84 +24,93 @@ class SettingsPage extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        SwitchListTile(
-          title: Text(l10n.t('settings.language')),
-          subtitle: Text(
-            language == AppLanguage.zh
-                ? l10n.t('settings.language.zh')
-                : l10n.t('settings.language.en'),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _SettingsSectionHeader(
+                  icon: Icons.dns_rounded,
+                  color: Color(0xFF2F67D8),
+                  title: LegacyZhTexts.settingsServerUrl,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  initialValue: state.serverUrl,
+                  keyboardType: TextInputType.url,
+                  decoration: const InputDecoration(
+                    labelText: LegacyZhTexts.settingsServerUrl,
+                    hintText: 'http://10.0.0.52:18080',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: controller.updateServerUrl,
+                ),
+              ],
+            ),
           ),
-          value: language == AppLanguage.zh,
-          onChanged: (value) => languageController.setLanguage(
-            value ? AppLanguage.zh : AppLanguage.en,
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: ListTile(
+            leading: const _SettingsSectionIcon(
+              icon: Icons.manage_accounts_outlined,
+              color: Color(0xFF7C3AED),
+            ),
+            title: Text(l10n.t('settings.subAccountCard')),
+            subtitle: Text(l10n.t('settings.subAccountCardHint')),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const SubAccountPage()),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: ListTile(
+            leading: const _SettingsSectionIcon(
+              icon: Icons.style_rounded,
+              color: Color(0xFF2F67D8),
+            ),
+            title: Text(l10n.t('settings.personalizationCard')),
+            subtitle: Text(l10n.t('settings.personalizationCardHint')),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const PersonalizationSettingsPage(),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: SwitchListTile(
+            secondary: const _SettingsSectionIcon(
+              icon: Icons.language_rounded,
+              color: Color(0xFF14A38B),
+            ),
+            title: Text(l10n.t('settings.language')),
+            subtitle: Text(
+              language == AppLanguage.zh
+                  ? l10n.t('settings.language.zh')
+                  : l10n.t('settings.language.en'),
+            ),
+            value: language == AppLanguage.zh,
+            onChanged: (value) => languageController.setLanguage(
+              value ? AppLanguage.zh : AppLanguage.en,
+            ),
           ),
         ),
         _SelectionTile(
           title: l10n.t('settings.fontScale'),
           value: '${(settings.fontScale * 100).round()}%',
+          icon: Icons.format_size_rounded,
+          color: const Color(0xFFE07A14),
           onTap: () => _pickFontScale(context, ref),
-        ),
-        const SizedBox(height: 12),
-        SwitchListTile(
-          title: Text(l10n.t('settings.autoRefresh')),
-          value: settings.autoRefreshEnabled,
-          onChanged: (value) => controller.updateSettings(
-            settings.copyWith(autoRefreshEnabled: value),
-          ),
-        ),
-        Card(
-          child: Column(
-            children: [
-              ListTile(
-                title: Text(l10n.t('settings.autoScanWindow')),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                title: Text(l10n.t('settings.autoScanStart')),
-                trailing: Text(
-                  _formatMinuteOfDay(settings.autoScanStartMinute),
-                ),
-                onTap: () => _pickScanTime(
-                  context,
-                  ref,
-                  isStart: true,
-                ),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                title: Text(l10n.t('settings.autoScanStop')),
-                trailing: Text(
-                  _formatMinuteOfDay(settings.autoScanStopMinute),
-                ),
-                onTap: () => _pickScanTime(
-                  context,
-                  ref,
-                  isStart: false,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          initialValue: settings.refreshIntervalSec.toString(),
-          keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            labelText: l10n.t('settings.refreshInterval'),
-            border: const OutlineInputBorder(),
-          ),
-          onChanged: (value) {
-            final parsed = int.tryParse(value) ?? settings.refreshIntervalSec;
-            controller.updateSettings(
-              settings.copyWith(refreshIntervalSec: parsed.clamp(10, 86400)),
-            );
-          },
-        ),
-        const SizedBox(height: 12),
-        _SelectionTile(
-          title: l10n.t('settings.scanConcurrency'),
-          value: '${settings.scanConcurrency}',
-          onTap: () => _pickConcurrency(context, ref),
         ),
       ],
     );
@@ -119,12 +130,13 @@ class SettingsPage extends ConsumerWidget {
               SimpleDialogOption(
                 onPressed: () => Navigator.of(dialogContext).pop(value),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: settings.fontScale == value
-                        ? Theme.of(dialogContext)
-                            .colorScheme
-                            .primaryContainer
+                        ? Theme.of(dialogContext).colorScheme.primaryContainer
                         : null,
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -140,141 +152,28 @@ class SettingsPage extends ConsumerWidget {
     }
     await controller.updateSettings(settings.copyWith(fontScale: selected));
   }
-
-  Future<void> _pickConcurrency(BuildContext context, WidgetRef ref) async {
-    final controller = ref.read(settingsControllerProvider.notifier);
-    final settings = ref.read(settingsControllerProvider).settings;
-    final l10n = AppLocalizer(ref);
-    final selected = await showDialog<int>(
-      context: context,
-      builder: (dialogContext) {
-        return SimpleDialog(
-          title: Text(l10n.t('settings.scanConcurrency')),
-          children: [
-            for (final value in _concurrencyOptions)
-              SimpleDialogOption(
-                onPressed: () => Navigator.of(dialogContext).pop(value),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: settings.scanConcurrency == value
-                        ? Theme.of(dialogContext)
-                            .colorScheme
-                            .primaryContainer
-                        : null,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text('$value'),
-                ),
-              ),
-          ],
-        );
-      },
-    );
-    if (selected == null) {
-      return;
-    }
-    if (selected >= 60) {
-      if (!context.mounted) {
-        return;
-      }
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) {
-          return AlertDialog(
-            title: Text(
-              l10n.t(
-                'settings.scanConcurrencyWarningTitle',
-                params: {'value': selected.toString()},
-              ),
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.t(
-                    'settings.scanConcurrencyWarningBody',
-                    params: {'value': selected.toString()},
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(l10n.t('settings.scanConcurrencyWarningHint')),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: Text(l10n.t('common.cancel')),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: Text(l10n.t('common.confirm')),
-              ),
-            ],
-          );
-        },
-      );
-      if (confirmed != true) {
-        return;
-      }
-    }
-    await controller.updateSettings(
-      settings.copyWith(scanConcurrency: selected),
-    );
-  }
-
-  Future<void> _pickScanTime(
-    BuildContext context,
-    WidgetRef ref, {
-    required bool isStart,
-  }) async {
-    final controller = ref.read(settingsControllerProvider.notifier);
-    final settings = ref.read(settingsControllerProvider).settings;
-    final initialMinutes = isStart
-        ? settings.autoScanStartMinute
-        : settings.autoScanStopMinute;
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(
-        hour: initialMinutes ~/ 60,
-        minute: initialMinutes % 60,
-      ),
-    );
-    if (picked == null) {
-      return;
-    }
-    final minutes = picked.hour * 60 + picked.minute;
-    await controller.updateSettings(
-      isStart
-          ? settings.copyWith(autoScanStartMinute: minutes)
-          : settings.copyWith(autoScanStopMinute: minutes),
-    );
-  }
-
-  String _formatMinuteOfDay(int minuteOfDay) {
-    final clamped = minuteOfDay.clamp(0, 1439);
-    final hour = (clamped ~/ 60).toString().padLeft(2, '0');
-    final minute = (clamped % 60).toString().padLeft(2, '0');
-    return '$hour:$minute';
-  }
 }
 
 class _SelectionTile extends StatelessWidget {
   const _SelectionTile({
     required this.title,
     required this.value,
+    required this.icon,
+    required this.color,
     required this.onTap,
   });
 
   final String title;
   final String value;
+  final IconData icon;
+  final Color color;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
+        leading: _SettingsSectionIcon(icon: icon, color: color),
         title: Text(title),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -286,6 +185,52 @@ class _SelectionTile extends StatelessWidget {
         ),
         onTap: onTap,
       ),
+    );
+  }
+}
+
+class _SettingsSectionHeader extends StatelessWidget {
+  const _SettingsSectionHeader({
+    required this.icon,
+    required this.color,
+    required this.title,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _SettingsSectionIcon(icon: icon, color: color),
+        const SizedBox(width: 10),
+        Text(
+          title,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsSectionIcon extends StatelessWidget {
+  const _SettingsSectionIcon({required this.icon, required this.color});
+
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(icon, size: 18, color: color),
     );
   }
 }

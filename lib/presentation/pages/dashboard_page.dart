@@ -2,14 +2,16 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
-import 'package:volcminer/core/utils/hashrate_utils.dart';
-import 'package:volcminer/core/utils/ip_utils.dart';
+import 'package:volcminer/core/utils/abnormal_miner_utils.dart';
+import 'package:volcminer/core/utils/eastern_time_utils.dart';
 import 'package:volcminer/domain/entities/tracked_miner.dart';
 import 'package:volcminer/presentation/localization/app_localizer.dart';
+import 'package:volcminer/presentation/localization/legacy_zh_texts.dart';
+import 'package:volcminer/presentation/pages/issue_miner_list_page.dart';
 import 'package:volcminer/presentation/pages/miner_category_page.dart';
 import 'package:volcminer/presentation/providers/app_providers.dart';
-import 'package:volcminer/services/background_scan_service.dart';
+
+const double _statusCardHeight = 136;
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
@@ -19,382 +21,183 @@ class DashboardPage extends ConsumerStatefulWidget {
 }
 
 class _DashboardPageState extends ConsumerState<DashboardPage> {
-  DateTime _now = DateTime.now();
-  Timer? _ticker;
+  bool _requestedRefresh = false;
 
   @override
-  void initState() {
-    super.initState();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() => _now = DateTime.now());
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_requestedRefresh) {
+      return;
+    }
+    _requestedRefresh = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
       }
+      unawaited(ref.read(scanControllerProvider.notifier).refreshServerSummary());
     });
   }
 
   @override
-  void dispose() {
-    _ticker?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final scanState = ref.watch(scanControllerProvider);
-    final settings = ref.watch(settingsControllerProvider).settings;
     final l10n = AppLocalizer(ref);
+    final scanState = ref.watch(scanControllerProvider);
     final allMiners = scanState.segments
         .expand((segment) => segment.miners)
         .toList(growable: false);
-    final online = allMiners
-        .where((miner) => miner.state == TrackedMinerState.online && !_isZeroHashOnline(miner))
-        .toList(growable: false);
-    final unresponsive = allMiners
-        .where((miner) => miner.state == TrackedMinerState.unresponsive || _isZeroHashOnline(miner))
-        .toList(growable: false);
-    final offline = allMiners
-        .where((miner) => miner.state == TrackedMinerState.offline)
-        .toList(growable: false);
-    final retired = allMiners
-        .where((miner) => miner.state == TrackedMinerState.pendingRetire)
-        .toList(growable: false);
-    final abnormal = allMiners
-        .where((miner) => miner.diagnosis != null || _isZeroHashOnline(miner))
-        .toList(growable: false);
-    final total = allMiners.length;
-    final hashrateMiners = allMiners
+
+    final fallbackOnline = allMiners
         .where(
           (miner) =>
-              miner.state == TrackedMinerState.online ||
-              miner.state == TrackedMinerState.unresponsive,
+              miner.state == TrackedMinerState.online &&
+              !_isZeroHashOnline(miner),
         )
-        .toList(growable: false);
-    final overallHashrateGh = hashrateMiners.fold<double>(
-      0,
-      (sum, miner) =>
-          sum + HashrateUtils.effectiveGh(miner.runtime.ghs5s, miner.runtime.ghsav),
-    );
-    final hashrateDisplay = _formatHashrate(overallHashrateGh);
-    final onlineRate = total == 0 ? 0 : (online.length / total) * 100;
-    final unstableMinerIps = allMiners
-        .where((miner) => miner.offlineEventCount >= 3)
-        .map((miner) => miner.ip)
-        .toList(growable: false)
-      ..sort(IpUtils.compareIpBlocks);
-    return FutureBuilder<_ScanScheduleInfo>(
-      future: _buildScheduleInfo(settings),
-      builder: (context, snapshot) {
-        final schedule = snapshot.data ??
-            _ScanScheduleInfo(
-              asOfText: l10n.t('overview.waitingFirstAutoScan'),
-              nextScanText: l10n.t('overview.waitingFirstAutoScan'),
-              countdownText: null,
-              progress: const AutoScanProgress(
-                isRunning: false,
-                scannedTargets: 0,
-                totalTargets: 0,
-              ),
-            );
-        final scheduleDate = DateFormat('yyyy-MM-dd').format(_now);
+        .length;
+    final fallbackUnresponsive = allMiners
+        .where(
+          (miner) =>
+              miner.state == TrackedMinerState.unresponsive ||
+              _isZeroHashOnline(miner),
+        )
+        .length;
+    final fallbackOffline = allMiners
+        .where((miner) => miner.state == TrackedMinerState.offline)
+        .length;
+    final fallbackPendingRetire = allMiners
+        .where((miner) => miner.state == TrackedMinerState.pendingRetire)
+        .length;
+    final fallbackAbnormal = allMiners
+        .where(AbnormalMinerUtils.isSoftOrUnknownAbnormal)
+        .length;
+    final fallbackFault = allMiners
+        .where(AbnormalMinerUtils.isHardAbnormal)
+        .length;
+    final fallbackSelfCheckFailure = allMiners
+        .where(AbnormalMinerUtils.isSelfCheckFailure)
+        .length;
+    final fallbackMultiRestart = allMiners
+        .where(AbnormalMinerUtils.isMultiRestart)
+        .length;
 
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _SummaryCard(
-                          title: l10n.t('overview.onlineMiners'),
-                          value: '${online.length}',
-                          color: Colors.green,
-                          onTap: () => _openCategory(
-                            context,
-                            'overview.allOnlineTitle',
-                            TrackedMinerState.online,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _SummaryCard(
-                          title: l10n.t('overview.unresponsiveMiners'),
-                          value: '${unresponsive.length}',
-                          color: Colors.amber.shade700,
-                          onTap: () => _openCategory(
-                            context,
-                            'overview.allUnresponsiveTitle',
-                            TrackedMinerState.unresponsive,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _SummaryCard(
-                          title: l10n.t('overview.offlineMiners'),
-                          value: '${offline.length}',
-                          color: Colors.red.shade400,
-                          onTap: () => _openCategory(
-                            context,
-                            'overview.allOfflineTitle',
-                            TrackedMinerState.offline,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _InfoCard(
-                      title: '',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            scheduleDate,
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            l10n.t('overview.scanSchedule'),
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            schedule.asOfText,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            schedule.nextScanText,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                          if (schedule.countdownText != null) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              schedule.countdownText!,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.black54,
-                                  ),
-                            ),
-                          ],
-                          const SizedBox(height: 12),
-                          _AutoScanProgressRing(
-                            progress: schedule.progress,
-                            runningLabel: l10n.t('overview.autoScanRunning'),
-                            idleLabel: l10n.t('overview.autoScanIdle'),
-                            finalizingLabel: l10n.t('overview.autoScanFinalizing'),
-                            stageLabelBuilder: (stageKey) =>
-                                l10n.t(stageKey ?? 'overview.autoScanFinalizing'),
-                            progressLabelBuilder: (current, total) => l10n.t(
-                              'overview.autoScanProgress',
-                              params: {
-                                'current': current.toString(),
-                                'total': total.toString(),
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _SummaryCard(
-                          title: l10n.t('overview.retiredMiners'),
-                          value: '${retired.length}',
-                          color: Colors.grey.shade700,
-                          onTap: () => _openCategory(
-                            context,
-                            'overview.allRetiredTitle',
-                            TrackedMinerState.pendingRetire,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _SummaryCard(
-                          title: l10n.t('overview.currentHashrate'),
-                          value: hashrateDisplay.value,
-                          suffix: ' ${hashrateDisplay.unit}',
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _SummaryCard(
-                          title: l10n.t('overview.abnormalMiners'),
-                          value: '${abnormal.length}',
-                          color: Colors.deepOrange,
-                          onTap: () => _openCategory(
-                            context,
-                            'overview.allAbnormalTitle',
-                            'abnormal',
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _SummaryCard(
-                          title: l10n.t('overview.onlineRate'),
-                          value: onlineRate.toStringAsFixed(1),
-                          suffix: '%',
-                          color: Theme.of(context).colorScheme.secondary,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.t('overview.unstableScopes'),
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    if (unstableMinerIps.isEmpty)
-                      Text(
-                        l10n.t('overview.unstableScopesEmpty'),
-                        style: const TextStyle(color: Colors.black54),
-                      )
-                    else
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: unstableMinerIps
-                            .map(
-                              (ip) => InputChip(
-                                label: Text(ip),
-                                avatar: const Icon(
-                                  Icons.warning_amber_rounded,
-                                  size: 18,
-                                ),
-                                onDeleted: () => _confirmRemoveUnstableIp(context, ip),
-                              ),
-                            )
-                            .toList(growable: false),
-                      ),
-                  ],
+    final online = scanState.serverOnlineCount ?? fallbackOnline;
+    final unresponsive =
+        scanState.serverUnresponsiveCount ?? fallbackUnresponsive;
+    final offline = scanState.serverOfflineCount ?? fallbackOffline;
+    final pendingRetire =
+        scanState.serverPendingRetireCount ?? fallbackPendingRetire;
+    final abnormal = fallbackAbnormal;
+    final fault = fallbackFault;
+    final selfCheckFailure = fallbackSelfCheckFailure;
+    final multiRestart = fallbackMultiRestart;
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        if (scanState.error != null) ...[
+          Card(
+            color: const Color(0xFFFFF4E5),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(
+                scanState.error!,
+                style: const TextStyle(
+                  color: Color(0xFF8A4B00),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<_ScanScheduleInfo> _buildScheduleInfo(
-    dynamic settings,
-  ) async {
-    final l10n = AppLocalizer(ref);
-    final lastAutoScanAt = await BackgroundScanService.getLastAutoScanAt();
-    final lastAutoScanAttemptAt =
-        await BackgroundScanService.getLastAutoScanAttemptAt();
-    final nextStored = await BackgroundScanService.getNextAutoScanAtStored();
-    final progress = await BackgroundScanService.getAutoScanProgress();
-    final computedNextAt = BackgroundScanService.getNextAutoScanAt(
-      settings: settings,
-      lastAutoScanAt: lastAutoScanAt,
-    );
-    final effectiveNextAt = _selectNextAutoScanAt(
-      nextStored: nextStored,
-      computedNextAt: computedNextAt,
-      lastAutoScanAt: lastAutoScanAt,
-    );
-    final asOfText = lastAutoScanAt == null
-        ? l10n.t('overview.dataAsOfCompact', params: {'time': '--'})
-        : l10n.t(
-            'overview.dataAsOfCompact',
-            params: {'time': DateFormat('HH:mm').format(lastAutoScanAt)},
-          );
-
-    if (!settings.autoRefreshEnabled) {
-      return _ScanScheduleInfo(
-        asOfText: asOfText,
-        nextScanText: l10n.t('overview.nextScanAtCompact', params: {'time': '--'}),
-        countdownText: l10n.t(
-          'overview.nextScanInCompact',
-          params: {'duration': '00:00'},
+          ),
+          const SizedBox(height: 12),
+        ],
+        _TimeSummaryCard(
+          generatedAt: scanState.generatedAt ?? scanState.lastScanAt,
+          lastServerSyncAt: scanState.lastServerSyncAt,
+          nextScheduledAt: scanState.nextScheduledAt,
+          nextGlobalScanAt: scanState.nextGlobalScanAt,
         ),
-        progress: progress,
-      );
-    }
-
-    final nextAt = effectiveNextAt;
-    if (nextAt == null) {
-      return _ScanScheduleInfo(
-        asOfText: asOfText,
-        nextScanText: l10n.t('overview.nextScanAtCompact', params: {'time': '--'}),
-        countdownText: l10n.t(
-          'overview.nextScanInCompact',
-          params: {'duration': '00:00'},
-        ),
-        progress: progress,
-      );
-    }
-
-    if (nextAt.isBefore(_now) || nextAt.isAtSameMomentAs(_now)) {
-      return _ScanScheduleInfo(
-        asOfText: asOfText,
-        nextScanText: lastAutoScanAttemptAt == null
-            ? l10n.t(
-                'overview.nextScanAtCompact',
-                params: {'time': DateFormat('HH:mm').format(nextAt)},
-              )
-            : l10n.t(
-                'overview.nextScanAtCompact',
-                params: {'time': DateFormat('HH:mm').format(nextAt)},
+        const SizedBox(height: 12),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 1.18,
+          children: [
+            _StatusCard(
+              title: LegacyZhTexts.dashboardOnline,
+              value: online.toString(),
+              color: const Color(0xFF2EAF62),
+              icon: Icons.wifi_rounded,
+            ),
+            _StatusCard(
+              title: LegacyZhTexts.dashboardUnresponsive,
+              value: unresponsive.toString(),
+              color: const Color(0xFFF0A21C),
+              icon: Icons.portable_wifi_off_rounded,
+            ),
+            _StatusCard(
+              title: LegacyZhTexts.dashboardOffline,
+              value: offline.toString(),
+              color: const Color(0xFFE15B64),
+              icon: Icons.power_off_rounded,
+              onTap: () => _openCategory(
+                context,
+                'overview.allOfflineTitle',
+                TrackedMinerState.offline,
               ),
-        countdownText: l10n.t(
-          'overview.nextScanInCompact',
-          params: {'duration': '00:00'},
+            ),
+            _StatusCard(
+              title: LegacyZhTexts.dashboardPendingRetire,
+              value: pendingRetire.toString(),
+              color: const Color(0xFF6F748B),
+              icon: Icons.inventory_2_outlined,
+              onTap: () => _openCategory(
+                context,
+                'overview.allRetiredTitle',
+                TrackedMinerState.pendingRetire,
+              ),
+            ),
+            _StatusCard(
+              title: LegacyZhTexts.dashboardAbnormal,
+              value: abnormal.toString(),
+              color: const Color(0xFFD77700),
+              icon: Icons.warning_amber_rounded,
+              onTap: () => _openIssueList(context, IssueMinerListKind.abnormal),
+            ),
+            _StatusCard(
+              title: LegacyZhTexts.dashboardFault,
+              value: fault.toString(),
+              color: const Color(0xFFD95050),
+              icon: Icons.build_circle_rounded,
+              onTap: () => _openIssueList(context, IssueMinerListKind.fault),
+            ),
+            _StatusCard(
+              title: LegacyZhTexts.dashboardSelfCheckFailure,
+              value: selfCheckFailure.toString(),
+              color: const Color(0xFF7A4DDB),
+              icon: Icons.fact_check_rounded,
+              onTap: () =>
+                  _openIssueList(context, IssueMinerListKind.selfCheckFailure),
+            ),
+            _StatusCard(
+              title: l10n.isZh ? '多次重启' : 'Multi-restart',
+              value: multiRestart.toString(),
+              color: const Color(0xFF5A7BEF),
+              icon: Icons.restart_alt_rounded,
+              onTap: () =>
+                  _openIssueList(context, IssueMinerListKind.multiRestart),
+            ),
+          ],
         ),
-        progress: progress,
-      );
-    }
-
-    return _ScanScheduleInfo(
-      asOfText: asOfText,
-      nextScanText: l10n.t(
-        'overview.nextScanAtCompact',
-        params: {'time': DateFormat('HH:mm').format(nextAt)},
-      ),
-      countdownText: l10n.t(
-        'overview.nextScanInCompact',
-        params: {'duration': _formatCountdown(nextAt, _now)},
-      ),
-      progress: progress,
+      ],
     );
   }
 
-  _HashrateDisplay _formatHashrate(double ghValue) {
-    return _HashrateDisplay(
-      value: (ghValue / 1000).toStringAsFixed(2),
-      unit: 'TH/s',
-    );
+  bool _isZeroHashOnline(TrackedMiner miner) {
+    return miner.state == TrackedMinerState.online &&
+        miner.effectiveHashrate <= 0;
   }
 
   void _openCategory(
@@ -404,298 +207,465 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   ) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => MinerCategoryPage(
-          titleKey: titleKey,
-          stateFilter: stateFilter,
-        ),
+        builder: (_) =>
+            MinerCategoryPage(titleKey: titleKey, stateFilter: stateFilter),
       ),
     );
   }
 
-  Future<void> _confirmRemoveUnstableIp(BuildContext context, String ip) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('移除多次掉线标记'),
-        content: Text('确认将 $ip 从多次掉线列表中移除吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('移除'),
-          ),
-        ],
-      ),
+  void _openIssueList(BuildContext context, IssueMinerListKind kind) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => IssueMinerListPage(kind: kind)),
     );
-    if (confirmed == true && mounted) {
-      ref.read(scanControllerProvider.notifier).clearUnstableMinerFlag(ip);
-    }
-  }
-
-  String _formatCountdown(DateTime target, DateTime now) {
-    final remaining = target.difference(now);
-    if (remaining.isNegative) {
-      return '00:00';
-    }
-    final totalMinutes = remaining.inMinutes;
-    final seconds = remaining.inSeconds.remainder(60);
-    return '${totalMinutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-  }
-
-  DateTime? _selectNextAutoScanAt({
-    required DateTime? nextStored,
-    required DateTime? computedNextAt,
-    required DateTime? lastAutoScanAt,
-  }) {
-    if (computedNextAt == null) {
-      return nextStored;
-    }
-    if (nextStored == null) {
-      return computedNextAt;
-    }
-    if (lastAutoScanAt != null && !nextStored.isAfter(lastAutoScanAt)) {
-      return computedNextAt;
-    }
-    if (computedNextAt.isAfter(nextStored)) {
-      return computedNextAt;
-    }
-    return nextStored;
-  }
-
-  bool _isZeroHashOnline(TrackedMiner miner) {
-    return miner.state == TrackedMinerState.online && miner.effectiveHashrate <= 0;
   }
 }
 
-class _HashrateDisplay {
-  const _HashrateDisplay({required this.value, required this.unit});
-
-  final String value;
-  final String unit;
-}
-
-class _ScanScheduleInfo {
-  const _ScanScheduleInfo({
-    required this.asOfText,
-    required this.nextScanText,
-    required this.countdownText,
-    required this.progress,
+class _TimeSummaryCard extends StatefulWidget {
+  const _TimeSummaryCard({
+    required this.generatedAt,
+    required this.lastServerSyncAt,
+    required this.nextScheduledAt,
+    required this.nextGlobalScanAt,
   });
 
-  final String asOfText;
-  final String nextScanText;
-  final String? countdownText;
-  final AutoScanProgress progress;
-}
-
-class _AutoScanProgressRing extends StatelessWidget {
-  const _AutoScanProgressRing({
-    required this.progress,
-    required this.runningLabel,
-    required this.idleLabel,
-    required this.finalizingLabel,
-    required this.stageLabelBuilder,
-    required this.progressLabelBuilder,
-  });
-
-  final AutoScanProgress progress;
-  final String runningLabel;
-  final String idleLabel;
-  final String finalizingLabel;
-  final String Function(String? stageKey) stageLabelBuilder;
-  final String Function(int current, int total) progressLabelBuilder;
+  final DateTime? generatedAt;
+  final DateTime? lastServerSyncAt;
+  final DateTime? nextScheduledAt;
+  final DateTime? nextGlobalScanAt;
 
   @override
-  Widget build(BuildContext context) {
-    final ratio = progress.ratio;
-    final hasConcreteFinalizingStage =
-        progress.phase == 'finalizing' && (progress.stageKey?.isNotEmpty ?? false);
-    return Column(
-      children: [
-        Row(
-          children: [
-            SizedBox(
-              width: 56,
-              height: 56,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  CircularProgressIndicator(
-                    value: progress.isRunning ? ratio : 0,
-                    strokeWidth: 6,
-                    backgroundColor: Colors.black12,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      progress.isRunning
-                          ? Theme.of(context).colorScheme.primary
-                          : Colors.black26,
-                    ),
-                  ),
-                  Center(
-                    child: Text(
-                      progress.isRunning && ratio != null
-                          ? '${(ratio * 100).round()}%'
-                          : '--',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    progress.isRunning ? runningLabel : idleLabel,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    progressLabelBuilder(
-                      progress.scannedTargets,
-                      progress.totalTargets,
-                    ),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.black54,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        if (hasConcreteFinalizingStage) ...[
-          const SizedBox(height: 10),
-          LinearProgressIndicator(
-            value: progress.stageTotal > 0
-                ? (progress.stageCurrent / progress.stageTotal).clamp(0, 1).toDouble()
-                : 0,
-            minHeight: 6,
-            borderRadius: BorderRadius.circular(999),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  stageLabelBuilder(progress.stageKey),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.black54,
-                      ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                progress.stageTotal > 0
-                    ? '${((progress.stageCurrent / progress.stageTotal) * 100).round()}%'
-                    : '0%',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.black54,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
+  State<_TimeSummaryCard> createState() => _TimeSummaryCardState();
 }
 
-class _InfoCard extends StatelessWidget {
-  const _InfoCard({
-    required this.title,
-    required this.child,
-  });
-
-  final String title;
-  final Widget child;
+class _TimeSummaryCardState extends State<_TimeSummaryCard> {
+  Timer? _timer;
+  bool _expanded = false;
 
   @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (title.isNotEmpty) ...[
-              Text(title, style: const TextStyle(color: Colors.black54)),
-              const SizedBox(height: 8),
-            ],
-            child,
-          ],
-        ),
-      ),
-    );
+  void initState() {
+    super.initState();
+    _restartTimer();
   }
-}
 
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({
-    required this.title,
-    required this.value,
-    required this.color,
-    this.suffix = '',
-    this.onTap,
-  });
+  @override
+  void didUpdateWidget(covariant _TimeSummaryCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.nextGlobalScanAt != widget.nextGlobalScanAt ||
+        oldWidget.generatedAt != widget.generatedAt ||
+        oldWidget.lastServerSyncAt != widget.lastServerSyncAt) {
+      _restartTimer();
+    }
+  }
 
-  final String title;
-  final String value;
-  final String suffix;
-  final Color color;
-  final VoidCallback? onTap;
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _restartTimer() {
+    _timer?.cancel();
+    if (widget.nextGlobalScanAt == null) {
+      return;
+    }
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  DateTime? _serverNow() {
+    final generatedAt = widget.generatedAt;
+    final lastServerSyncAt = widget.lastServerSyncAt;
+    if (generatedAt == null || lastServerSyncAt == null) {
+      return null;
+    }
+    return generatedAt.add(DateTime.now().difference(lastServerSyncAt));
+  }
+
+  void _toggleExpanded() {
+    setState(() {
+      _expanded = !_expanded;
+    });
+  }
+
+  String _formatCountdown(DateTime? targetTime) {
+    if (targetTime == null) {
+      return '--';
+    }
+    final remaining = targetTime.difference(_serverNow() ?? DateTime.now());
+    if (remaining.inSeconds <= 0) {
+      return '即将开始';
+    }
+    if (remaining.inMinutes < 1) {
+      return '1分钟内';
+    }
+    if (remaining.inHours < 1) {
+      return '${remaining.inMinutes}分钟';
+    }
+    if (remaining.inDays < 1) {
+      final hours = remaining.inHours;
+      final minutes = remaining.inMinutes.remainder(60);
+      return minutes == 0 ? '$hours小时' : '$hours小时$minutes分钟';
+    }
+    final days = remaining.inDays;
+    final hours = remaining.inHours.remainder(24);
+    return hours == 0 ? '$days天' : '$days天$hours小时';
+  }
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
+        onTap: _toggleExpanded,
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(color: Colors.black54)),
-              const SizedBox(height: 8),
-              RichText(
-                text: TextSpan(
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: color,
-                        fontWeight: FontWeight.w700,
-                      ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: _expanded
+              ? Column(
                   children: [
-                    TextSpan(text: value),
-                    if (suffix.isNotEmpty)
-                      TextSpan(
-                        text: suffix,
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              color: color,
-                              fontWeight: FontWeight.w700,
-                              fontSize: (Theme.of(context)
-                                          .textTheme
-                                          .headlineSmall
-                                          ?.fontSize ??
-                                      24) *
-                                  0.72,
-                            ),
+                    _TimeRow(
+                      icon: Icons.update_rounded,
+                      label: LegacyZhTexts.dashboardUpdatedAt,
+                      value: widget.generatedAt,
+                      timeColor: const Color(0xFF2EAF62),
+                    ),
+                    const Divider(height: 18, thickness: 0.8),
+                    _TimeRow(
+                      icon: Icons.schedule_rounded,
+                      label: LegacyZhTexts.dashboardNextScan,
+                      value: widget.nextScheduledAt,
+                      timeColor: const Color(0xFF2F67D8),
+                    ),
+                    const Divider(height: 18, thickness: 0.8),
+                    _CountdownRow(
+                      icon: Icons.hourglass_bottom_rounded,
+                      label: '\u8ddd\u79bb\u4e0b\u6b21\u5168\u6bb5\u626b\u63cf',
+                      targetTime: widget.nextGlobalScanAt,
+                      referenceNow: _serverNow(),
+                      timeColor: const Color(0xFF7A4DDB),
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: _CompactTimeItem(
+                        icon: Icons.update_rounded,
+                        value: widget.generatedAt == null
+                            ? '--'
+                            : EasternTimeUtils.format(
+                                widget.generatedAt,
+                                pattern: 'HH:mm',
+                              ),
+                        timeColor: const Color(0xFF2EAF62),
                       ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _CompactTimeItem(
+                        icon: Icons.schedule_rounded,
+                        value: widget.nextScheduledAt == null
+                            ? '--'
+                            : EasternTimeUtils.format(
+                                widget.nextScheduledAt,
+                                pattern: 'HH:mm',
+                              ),
+                        timeColor: const Color(0xFF2F67D8),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _CompactTimeItem(
+                        icon: Icons.hourglass_bottom_rounded,
+                        value: _formatCountdown(widget.nextGlobalScanAt),
+                        timeColor: const Color(0xFF7A4DDB),
+                      ),
+                    ),
                   ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
+    );
+  }
+}
+
+class _CompactTimeItem extends StatelessWidget {
+  const _CompactTimeItem({
+    required this.icon,
+    required this.value,
+    required this.timeColor,
+  });
+
+  final IconData icon;
+  final String value;
+  final Color timeColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: timeColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: timeColor, size: 17),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: timeColor,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TimeRow extends StatelessWidget {
+  const _TimeRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.timeColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final DateTime? value;
+  final Color timeColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final dateText = value == null
+        ? '--'
+        : EasternTimeUtils.format(value, pattern: 'yyyy-MM-dd');
+    final timeText = value == null
+        ? '--'
+        : EasternTimeUtils.format(value, pattern: 'HH:mm');
+
+    return Row(
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: timeColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: timeColor, size: 18),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF30343F),
+            ),
+          ),
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              dateText,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF70778B),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              timeText,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: timeColor,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _CountdownRow extends StatelessWidget {
+  const _CountdownRow({
+    required this.icon,
+    required this.label,
+    required this.targetTime,
+    required this.referenceNow,
+    required this.timeColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final DateTime? targetTime;
+  final DateTime? referenceNow;
+  final Color timeColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: timeColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: timeColor, size: 18),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF30343F),
+            ),
+          ),
+        ),
+        Text(
+          _formatCountdown(targetTime, referenceNow),
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            color: timeColor,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatCountdown(DateTime? targetTime, DateTime? referenceNow) {
+    if (targetTime == null) {
+      return '--';
+    }
+    final remaining = targetTime.difference(referenceNow ?? DateTime.now());
+    if (remaining.inSeconds <= 0) {
+      return '即将开始';
+    }
+    if (remaining.inMinutes < 1) {
+      return '1分钟内';
+    }
+    if (remaining.inHours < 1) {
+      return '${remaining.inMinutes}分钟';
+    }
+    if (remaining.inDays < 1) {
+      final hours = remaining.inHours;
+      final minutes = remaining.inMinutes.remainder(60);
+      return minutes == 0 ? '$hours小时' : '$hours小时$minutes分';
+    }
+    final days = remaining.inDays;
+    final hours = remaining.inHours.remainder(24);
+    return hours == 0 ? '$days天' : '$days天$hours小时';
+  }
+}
+
+class _StatusCard extends StatelessWidget {
+  const _StatusCard({
+    required this.title,
+    required this.value,
+    required this.color,
+    required this.icon,
+    this.onTap,
+  });
+
+  final String title;
+  final String value;
+  final Color color;
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Padding(
+      padding: const EdgeInsets.all(14),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: _statusCardHeight),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 17, color: color),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF4A5161),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: Align(
+                alignment: Alignment.bottomLeft,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FittedBox(
+                    alignment: Alignment.centerLeft,
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      value,
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        color: color,
+                        height: 1,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return Card(
+      child: onTap == null
+          ? child
+          : InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: onTap,
+              child: child,
+            ),
     );
   }
 }

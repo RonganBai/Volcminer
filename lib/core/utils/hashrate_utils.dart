@@ -22,6 +22,9 @@ class HashrateUtils {
     if (normalized.contains('TH')) {
       return number * 1000;
     }
+    if (normalized.contains('GH')) {
+      return number;
+    }
     if (normalized.contains('MH')) {
       return number / 1000;
     }
@@ -39,4 +42,8 @@ class HashrateUtils {
     }
     return parseToGh(average);
   }
+
+  static double currentGh(String current) => parseToGh(current);
+
+  static double averageGh(String average) => parseToGh(average);
 }

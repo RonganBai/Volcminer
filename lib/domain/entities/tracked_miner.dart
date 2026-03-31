@@ -23,6 +23,11 @@ class TrackedMiner {
     this.offlineScanMisses = 0,
     this.retiredAt,
     this.zeroHashWaitUntil,
+    this.zeroHashRestartPending = false,
+    this.droppedBoardRestartPending = false,
+    this.allBoardFailureRestartPending = false,
+    this.tempFullSpeedMarkedAt,
+    this.tempFullSpeedScanMisses = 0,
     this.forcedOfflineAt,
     this.diagnosis,
   });
@@ -38,6 +43,11 @@ class TrackedMiner {
   final int offlineScanMisses;
   final DateTime? retiredAt;
   final DateTime? zeroHashWaitUntil;
+  final bool zeroHashRestartPending;
+  final bool droppedBoardRestartPending;
+  final bool allBoardFailureRestartPending;
+  final DateTime? tempFullSpeedMarkedAt;
+  final int tempFullSpeedScanMisses;
   final DateTime? forcedOfflineAt;
   final MinerIssueDiagnosis? diagnosis;
 
@@ -68,13 +78,32 @@ class TrackedMiner {
   bool get canDelete => state == TrackedMinerState.pendingRetire;
   bool get hasIssue => diagnosis != null;
   bool get isWaitingZeroHashRecheck => zeroHashWaitUntil != null;
+  bool get hasDroppedBoardIssue =>
+      diagnosis?.code == 'HASHBOARD_DROPPED_RESTARTING' ||
+      diagnosis?.code == 'HASHBOARD_DROPPED_RESTART_FAILED' ||
+      droppedBoardRestartPending;
+  bool get hasAllBoardFailureIssue =>
+      diagnosis?.code == 'HASHBOARD_ALL_FAILED_RESTARTING' ||
+      diagnosis?.code == 'HASHBOARD_ALL_FAILED_NEEDS_REPLACEMENT' ||
+      allBoardFailureRestartPending;
+  bool get hasTemperatureRecoveryIssue =>
+      diagnosis?.code == 'TEMP_FULL_SPEED_RECOVERING' ||
+      diagnosis?.code == 'TEMP_FULL_SPEED_PERSISTED' ||
+      tempFullSpeedMarkedAt != null;
 
   MinerRuntime get runtime => lastItem.runtime;
 
   double get effectiveHashrate =>
       HashrateUtils.effectiveGh(runtime.ghs5s, runtime.ghsav);
 
-  bool get isZeroHashrate => state == TrackedMinerState.online && effectiveHashrate <= 0;
+  double get currentHashrate => HashrateUtils.currentGh(runtime.ghs5s);
+
+  double get averageHashrate => HashrateUtils.averageGh(runtime.ghsav);
+
+  bool get isZeroHashrate => state == TrackedMinerState.online && currentHashrate <= 0;
+
+  bool get hasCurrentZeroAverageNonZero =>
+      currentHashrate <= 0 && averageHashrate > 0;
 
   TrackedMiner copyWith({
     String? ip,
@@ -92,6 +121,12 @@ class TrackedMiner {
     bool clearRetiredAt = false,
     DateTime? zeroHashWaitUntil,
     bool clearZeroHashWaitUntil = false,
+    bool? zeroHashRestartPending,
+    bool? droppedBoardRestartPending,
+    bool? allBoardFailureRestartPending,
+    DateTime? tempFullSpeedMarkedAt,
+    bool clearTempFullSpeedMarkedAt = false,
+    int? tempFullSpeedScanMisses,
     DateTime? forcedOfflineAt,
     bool clearForcedOfflineAt = false,
     MinerIssueDiagnosis? diagnosis,
@@ -114,6 +149,17 @@ class TrackedMiner {
       zeroHashWaitUntil: clearZeroHashWaitUntil
           ? null
           : (zeroHashWaitUntil ?? this.zeroHashWaitUntil),
+      zeroHashRestartPending:
+          zeroHashRestartPending ?? this.zeroHashRestartPending,
+      droppedBoardRestartPending:
+          droppedBoardRestartPending ?? this.droppedBoardRestartPending,
+      allBoardFailureRestartPending:
+          allBoardFailureRestartPending ?? this.allBoardFailureRestartPending,
+      tempFullSpeedMarkedAt: clearTempFullSpeedMarkedAt
+          ? null
+          : (tempFullSpeedMarkedAt ?? this.tempFullSpeedMarkedAt),
+      tempFullSpeedScanMisses:
+          tempFullSpeedScanMisses ?? this.tempFullSpeedScanMisses,
       forcedOfflineAt: clearForcedOfflineAt
           ? null
           : (forcedOfflineAt ?? this.forcedOfflineAt),

@@ -1,6 +1,6 @@
 import 'package:volcminer/domain/entities/credential.dart';
 import 'package:volcminer/domain/entities/led_toggle_result.dart';
-import 'package:volcminer/domain/entities/pool_slot_config.dart';
+import 'package:volcminer/domain/entities/miner_pool_config_snapshot.dart';
 import 'package:volcminer/domain/repositories/miner_repository.dart';
 
 class ApplyPoolConfigUseCase {
@@ -10,14 +10,12 @@ class ApplyPoolConfigUseCase {
 
   Future<LedToggleResult> execute(
     List<String> ips,
-    List<PoolSlotConfig> poolSlots,
-    Map<int, String> slotPasswords,
+    MinerPoolConfigSnapshot snapshot,
     MinerCredential credential,
   ) {
     return _repository.applyPoolConfig(
       ips,
-      poolSlots,
-      slotPasswords,
+      snapshot,
       credential,
     );
   }

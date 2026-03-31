@@ -1,3 +1,60 @@
+class MinerChainStatus {
+  const MinerChainStatus({
+    required this.index,
+    required this.chainRate,
+    required this.temp,
+    required this.freq,
+    required this.hw,
+    required this.chainAcn,
+    required this.chainAcs,
+  });
+
+  final int index;
+  final String chainRate;
+  final String temp;
+  final String freq;
+  final String hw;
+  final String chainAcn;
+  final String chainAcs;
+
+  double get chainRateValue {
+    return _parseNumericValue(chainRate).toDouble();
+  }
+
+  double get tempValue {
+    return _parseNumericValue(temp).toDouble();
+  }
+
+  int get hwValue {
+    return _parseNumericValue(hw).toInt();
+  }
+
+  bool get hasAcsIssue {
+    final normalized = chainAcs.trim().toLowerCase();
+    return normalized.contains('x') ||
+        normalized.contains('-') ||
+        normalized.contains('*');
+  }
+}
+
+num _parseNumericValue(String raw) {
+  final String normalized = raw.replaceAll(',', '').trim();
+  if (normalized.isEmpty) {
+    return 0;
+  }
+
+  final RegExpMatch? match = RegExp(r'-?\d+(?:\.\d+)?').firstMatch(normalized);
+  if (match == null) {
+    return 0;
+  }
+
+  final String numericText = match.group(0) ?? '0';
+  if (numericText.contains('.')) {
+    return double.tryParse(numericText) ?? 0;
+  }
+  return int.tryParse(numericText) ?? 0;
+}
+
 class MinerRuntimeStatus {
   static const String online = 'online';
   static const String offline = 'offline';
@@ -18,6 +75,7 @@ class MinerRuntime {
     required this.fan3,
     required this.fan4,
     required this.runningMode,
+    required this.chains,
     required this.logSnippet,
     required this.fetchedAt,
   });
@@ -33,6 +91,7 @@ class MinerRuntime {
   final String fan3;
   final String fan4;
   final String runningMode;
+  final List<MinerChainStatus> chains;
   final String logSnippet;
   final DateTime fetchedAt;
 
@@ -62,6 +121,7 @@ class MinerRuntime {
       fan3: '--',
       fan4: '--',
       runningMode: '--',
+      chains: const [],
       logSnippet: log,
       fetchedAt: DateTime.now(),
     );

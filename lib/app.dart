@@ -12,15 +12,20 @@ class VolcMinerApp extends ConsumerWidget {
     final textScaler = TextScaler.linear(settings.fontScale);
     return MaterialApp(
       title: 'VolcMiner',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0B5E4E)),
         useMaterial3: true,
       ),
       builder: (context, child) {
         final media = MediaQuery.of(context);
-        return MediaQuery(
-          data: media.copyWith(textScaler: textScaler),
-          child: child ?? const SizedBox.shrink(),
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: MediaQuery(
+            data: media.copyWith(textScaler: textScaler),
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
       home: const HomeShell(),

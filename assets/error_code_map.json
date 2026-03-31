@@ -10,6 +10,16 @@
     "solution": "Replace the power supply and inspect the output cables and input power before powering on again."
   },
   {
+    "code": "OVER_VOLTAGE",
+    "category": "power",
+    "priority": 95,
+    "matches": [
+      "voltage too high"
+    ],
+    "reason": "Power output voltage is abnormally high and exceeds the safe range.",
+    "solution": "Stop the miner, inspect the power supply output, and replace the power supply if the overvoltage condition persists."
+  },
+  {
     "code": "FAN_ERROR",
     "category": "fan",
     "priority": 90,
@@ -17,10 +27,9 @@
       "fan err",
       "fan error",
       "fan lost",
-      "fan speed too low",
       "fan abnormal",
       "fan fail",
-      "too slow",
+      "too slow ...0",
       "fan0speed = 0",
       "fan1speed = 0",
       "fan2speed = 0",

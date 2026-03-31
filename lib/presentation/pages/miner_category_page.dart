@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+import 'package:volcminer/core/utils/abnormal_miner_utils.dart';
+import 'package:volcminer/core/utils/eastern_time_utils.dart';
 import 'package:volcminer/core/utils/ip_utils.dart';
 import 'package:volcminer/domain/entities/credential.dart';
 import 'package:volcminer/domain/entities/tracked_miner.dart';
 import 'package:volcminer/presentation/localization/app_localizer.dart';
+import 'package:volcminer/presentation/localization/legacy_zh_texts.dart';
 import 'package:volcminer/presentation/localization/issue_localizer.dart';
 import 'package:volcminer/presentation/pages/miner_detail_page.dart';
 import 'package:volcminer/presentation/providers/app_providers.dart';
@@ -17,10 +19,16 @@ class MinerCategoryPage extends ConsumerStatefulWidget {
     super.key,
     required this.titleKey,
     required this.stateFilter,
+    this.titleText,
+    this.abnormalGroup,
+    this.abnormalType,
   });
 
   final String titleKey;
   final String stateFilter;
+  final String? titleText;
+  final String? abnormalGroup;
+  final String? abnormalType;
 
   @override
   ConsumerState<MinerCategoryPage> createState() => _MinerCategoryPageState();
@@ -35,7 +43,18 @@ class _MinerCategoryPageState extends ConsumerState<MinerCategoryPage> {
 
   bool _matchesFilter(TrackedMiner miner) {
     if (widget.stateFilter == 'abnormal') {
-      return miner.diagnosis != null || _isZeroHashOnline(miner);
+      if (!AbnormalMinerUtils.isAbnormal(miner)) {
+        return false;
+      }
+      if (widget.abnormalGroup != null &&
+          AbnormalMinerUtils.abnormalGroupOf(miner) != widget.abnormalGroup) {
+        return false;
+      }
+      if (widget.abnormalType != null &&
+          AbnormalMinerUtils.abnormalTypeOf(miner) != widget.abnormalType) {
+        return false;
+      }
+      return true;
     }
     if (widget.stateFilter == TrackedMinerState.unresponsive) {
       return miner.state == TrackedMinerState.unresponsive || _isZeroHashOnline(miner);
@@ -43,13 +62,9 @@ class _MinerCategoryPageState extends ConsumerState<MinerCategoryPage> {
     return miner.state == widget.stateFilter;
   }
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(ref.read(scanControllerProvider.notifier).loadPersistedState());
-    });
-  }
+  bool get _showUnstableBadgePage =>
+      widget.stateFilter == TrackedMinerState.offline ||
+      widget.stateFilter == TrackedMinerState.pendingRetire;
 
   Future<void> _refreshCategory({bool forceScan = false}) async {
     await ref.read(scanControllerProvider.notifier).loadPersistedState();
@@ -133,6 +148,8 @@ class _MinerCategoryPageState extends ConsumerState<MinerCategoryPage> {
       username: settingsState.settings.minerUsername,
       password: settingsState.minerAuthPassword,
     );
+    final shouldRediagnoseLogs = widget.stateFilter == 'abnormal' &&
+        widget.abnormalGroup == AbnormalMinerGroup.hard;
     if (mounted) {
       setState(() => _refreshing = true);
     }
@@ -141,6 +158,7 @@ class _MinerCategoryPageState extends ConsumerState<MinerCategoryPage> {
             ips: ips,
             minerCredential: credential,
             concurrency: settingsState.settings.scanConcurrency,
+            rediagnoseLogs: shouldRediagnoseLogs,
           );
       if (!mounted) {
         return;
@@ -165,8 +183,10 @@ class _MinerCategoryPageState extends ConsumerState<MinerCategoryPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizer(ref);
-    final scanState = ref.watch(scanControllerProvider);
-    final sorted = scanState.segments
+    final segments = ref.watch(
+      scanControllerProvider.select((state) => state.segments),
+    );
+    final sorted = segments
         .expand(
           (segment) => segment.miners
               .where(_matchesFilter)
@@ -177,12 +197,12 @@ class _MinerCategoryPageState extends ConsumerState<MinerCategoryPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.t(widget.titleKey)),
+        title: Text(widget.titleText ?? l10n.t(widget.titleKey)),
         actions: [
           if (widget.stateFilter == TrackedMinerState.offline || widget.stateFilter == 'abnormal')
             IconButton(
               onPressed: _refreshing ? null : () => _refreshCategory(forceScan: true),
-              tooltip: '刷新矿机',
+              tooltip: l10n.t('miner.refresh'),
               icon: _refreshing
                   ? const SizedBox(
                       width: 20,
@@ -202,80 +222,132 @@ class _MinerCategoryPageState extends ConsumerState<MinerCategoryPage> {
               itemBuilder: (context, index) {
                 final item = sorted[index];
                 final miner = item.miner;
+                final showUnstableBadge =
+                    _showUnstableBadgePage && miner.offlineEventCount >= 3;
+                final showDroppedBoardBadge = miner.hasDroppedBoardIssue;
+                final issueBadgeLabel = miner.diagnosis == null
+                    ? null
+                    : IssueLocalizer.shortBadge(l10n, miner.diagnosis!);
                 return Card(
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(16),
-                    title: Text(
-                      miner.ip,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.t('overview.scope', params: {'scope': item.scope}),
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              if (_statusDotColor(miner, widget.stateFilter) != null) ...[
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: _statusDotColor(miner, widget.stateFilter),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                              ],
-                              Expanded(
-                                child: Text(
-                                  '${_stateLabel(miner, l10n)} | ${miner.runtime.ghs5s}/${miner.runtime.ghsav}',
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Last seen ${DateFormat('yyyy-MM-dd HH:mm:ss').format(miner.lastSeenAt)}',
-                          ),
-                          const SizedBox(height: 6),
-                          _HashrateBar(hashrateGh: miner.effectiveHashrate),
-                          if (miner.diagnosis != null) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              IssueLocalizer.reason(l10n, miner.diagnosis!),
-                              style: const TextStyle(
-                                color: Colors.orange,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            if (IssueLocalizer.snippetSummary(l10n, miner.diagnosis!) != null) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                IssueLocalizer.snippetSummary(l10n, miner.diagnosis!)!,
-                                style: const TextStyle(color: Colors.black54),
-                              ),
-                            ],
-                          ],
-                        ],
-                      ),
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
                     onTap: () async {
                       await Navigator.of(context).push(
                         MaterialPageRoute<void>(
                           builder: (_) => MinerDetailPage(miner: miner),
                         ),
                       );
-                      if (!mounted) {
-                        return;
-                      }
-                      await ref.read(scanControllerProvider.notifier).loadPersistedState();
                     },
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2F67D8).withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.memory_rounded,
+                                  color: Color(0xFF2F67D8),
+                                  size: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      miner.ip,
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      l10n.t('overview.scope', params: {'scope': item.scope}),
+                                      style: const TextStyle(
+                                        color: Color(0xFF6F748B),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _StatusPill(
+                                label: _stateLabel(miner, l10n),
+                                color: _statusColor(miner, widget.stateFilter),
+                              ),
+                            ],
+                          ),
+                          if (showUnstableBadge ||
+                              showDroppedBoardBadge ||
+                              issueBadgeLabel != null) ...[
+                            const SizedBox(height: 10),
+                            _MinerBadges(
+                              showUnstableBadge: showUnstableBadge,
+                              showDroppedBoardBadge: showDroppedBoardBadge,
+                              issueBadgeLabel: issueBadgeLabel,
+                              l10n: l10n,
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _MinerInfoTile(
+                                  icon: Icons.flash_on_rounded,
+                                  color: const Color(0xFF2F67D8),
+                                  label: LegacyZhTexts.minerFiveSecondHashrate,
+                                  value: miner.runtime.ghs5s,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _MinerInfoTile(
+                                  icon: Icons.update_rounded,
+                                  color: const Color(0xFF6F748B),
+                                  label: LegacyZhTexts.segmentLastScan,
+                                  value: EasternTimeUtils.format(
+                                    miner.lastSeenAt,
+                                    pattern: 'yyyy-MM-dd HH:mm:ss',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          _HashrateBar(hashrateGh: miner.effectiveHashrate),
+                          if (miner.diagnosis != null) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              IssueLocalizer.reason(l10n, miner.diagnosis!),
+                              style: const TextStyle(
+                                color: Colors.orange,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            if (IssueLocalizer.snippetSummary(l10n, miner.diagnosis!) != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                IssueLocalizer.snippetSummary(l10n, miner.diagnosis!)!,
+                                style: const TextStyle(color: Color(0xFF6F748B)),
+                              ),
+                            ],
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                 );
               },
@@ -309,45 +381,253 @@ class TrackedMinerWithScope {
   final TrackedMiner miner;
 }
 
-class _HashrateBar extends StatelessWidget {
-  const _HashrateBar({required this.hashrateGh});
+class _MinerBadges extends StatelessWidget {
+  const _MinerBadges({
+    required this.showUnstableBadge,
+    required this.showDroppedBoardBadge,
+    required this.issueBadgeLabel,
+    required this.l10n,
+  });
 
-  final double hashrateGh;
+  final bool showUnstableBadge;
+  final bool showDroppedBoardBadge;
+  final String? issueBadgeLabel;
+  final AppLocalizer l10n;
 
   @override
   Widget build(BuildContext context) {
-    final stateIndex = hashrateGh > 14
-        ? 0
-        : hashrateGh > 5
-            ? 1
-            : 2;
-    const colors = [Colors.green, Colors.amber, Colors.red];
-    return Row(
-      children: [
-        for (var i = 0; i < colors.length; i++) ...[
-          Expanded(
-            child: Container(
-              height: 6,
-              decoration: BoxDecoration(
-                color: colors[i].withValues(alpha: i == stateIndex ? 1 : 0.22),
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-          ),
-          if (i != colors.length - 1) const SizedBox(width: 4),
-        ],
-      ],
+    final badges = <Widget>[
+      if (issueBadgeLabel != null)
+        _MinerBadge(
+          label: issueBadgeLabel!,
+          color: Colors.redAccent,
+        ),
+      if (issueBadgeLabel != null && showDroppedBoardBadge)
+        const SizedBox(height: 6),
+      if (showDroppedBoardBadge)
+        _MinerBadge(
+          label: l10n.t('segment.badge.droppedBoard'),
+          color: Colors.deepOrange,
+        ),
+      if ((issueBadgeLabel != null || showDroppedBoardBadge) && showUnstableBadge)
+        const SizedBox(height: 6),
+      if (showUnstableBadge)
+        _MinerBadge(
+          label: l10n.t('segment.badge.unstable'),
+          color: Colors.orange,
+        ),
+    ];
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: badges,
     );
   }
 }
 
-Color? _statusDotColor(TrackedMiner miner, String filter) {
+class _MinerBadge extends StatelessWidget {
+  const _MinerBadge({
+    required this.label,
+    required this.color,
+  });
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({
+    required this.label,
+    required this.color,
+  });
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+class _MinerInfoTile extends StatelessWidget {
+  const _MinerInfoTile({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 15, color: color),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF4A5161),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HashrateBar extends StatelessWidget {
+  const _HashrateBar({required this.hashrateGh});
+
+  final double hashrateGh;
+  static const double _maxDisplayGh = 16;
+
+  @override
+  Widget build(BuildContext context) {
+    final clamped = hashrateGh.clamp(0, _maxDisplayGh).toDouble();
+    final ratio = _maxDisplayGh <= 0 ? 0.0 : (clamped / _maxDisplayGh);
+    final isZero = hashrateGh <= 0;
+
+    return Container(
+      width: double.infinity,
+      height: 14,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: isZero
+            ? [
+                BoxShadow(
+                  color: Colors.redAccent.withValues(alpha: 0.45),
+                  blurRadius: 8,
+                  spreadRadius: 0.5,
+                ),
+              ]
+            : null,
+      ),
+      child: Container(
+        height: 14,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: Colors.black, width: 1.4),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final currentWidth = constraints.maxWidth * ratio;
+              return Stack(
+                children: [
+                  Container(
+                    width: constraints.maxWidth,
+                    height: constraints.maxHeight,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Color(0xFFE53935),
+                          Color(0xFFFDD835),
+                          Color(0xFF43A047),
+                        ],
+                        stops: [0.0, 0.5, 1.0],
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        width: constraints.maxWidth - currentWidth,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Color _statusColor(TrackedMiner miner, String filter) {
   if (filter == 'abnormal' && (miner.diagnosis != null || miner.effectiveHashrate <= 0)) {
     return Colors.deepOrange;
   }
+  if (miner.state == TrackedMinerState.online &&
+      miner.effectiveHashrate <= 0) {
+    return const Color(0xFFF0A21C);
+  }
   return switch (miner.state) {
-    TrackedMinerState.online => Colors.green,
-    TrackedMinerState.offline => Colors.red,
-    _ => null,
+    TrackedMinerState.online => const Color(0xFF2EAF62),
+    TrackedMinerState.unresponsive => const Color(0xFFF0A21C),
+    TrackedMinerState.offline => const Color(0xFFE15B64),
+    _ => const Color(0xFF6F748B),
   };
 }

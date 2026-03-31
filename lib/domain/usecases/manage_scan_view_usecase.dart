@@ -6,11 +6,18 @@ class ManageScanViewUseCase {
 
   final ScanViewRepository _repository;
 
-  Future<List<ScanView>> getAll() => _repository.getAll();
+  Future<List<ScanView>> getLocal() => _repository.getLocal();
 
-  Future<void> save(ScanView view) => _repository.save(view);
+  Future<List<ScanView>> fetchRemote() => _repository.fetchRemote();
 
-  Future<void> delete(String viewId) => _repository.delete(viewId);
+  Future<void> saveLocal(ScanView view) => _repository.saveLocal(view);
+
+  Future<void> deleteLocal(String viewId) => _repository.deleteLocal(viewId);
+
+  Future<void> syncRemote(List<ScanView> views) =>
+      _repository.syncRemote(views);
+
+  Future<bool> hasRemoteSyncSucceeded() => _repository.hasRemoteSyncSucceeded();
 
   Future<List<String>> setSelected(List<String> ids, SelectionMode mode) {
     return _repository.setSelected(ids, mode);

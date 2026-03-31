@@ -42,16 +42,18 @@ class _ScanPageState extends ConsumerState<ScanPage> {
     final settingsState = ref.watch(settingsControllerProvider);
     final scanTargetMode = ref.watch(scanTargetModeProvider);
     final l10n = AppLocalizer(ref);
-    final filteredViews = scanViewState.views.where((view) {
-      if (_viewSearchQuery.isEmpty) {
-        return true;
-      }
-      final q = _viewSearchQuery.toLowerCase();
-      final displayBlock = IpUtils.formatIpBlockLabel(
-        view.cidr.isNotEmpty ? view.cidr : view.startIp,
-      ).toLowerCase();
-      return displayBlock.contains(q);
-    }).toList(growable: false);
+    final filteredViews = scanViewState.views
+        .where((view) {
+          if (_viewSearchQuery.isEmpty) {
+            return true;
+          }
+          final q = _viewSearchQuery.toLowerCase();
+          final displayBlock = IpUtils.formatIpBlockLabel(
+            view.cidr.isNotEmpty ? view.cidr : view.startIp,
+          ).toLowerCase();
+          return displayBlock.contains(q);
+        })
+        .toList(growable: false);
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -61,9 +63,13 @@ class _ScanPageState extends ConsumerState<ScanPage> {
         Card(
           child: ExpansionTile(
             initiallyExpanded: false,
+            leading: _SectionIcon(
+              icon: Icons.lock_outline_rounded,
+              color: const Color(0xFF2F67D8),
+            ),
             title: Text(
               l10n.t('dashboard.minerAuth'),
-              style: const TextStyle(fontWeight: FontWeight.w600),
+              style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             children: [
               Padding(
@@ -77,9 +83,13 @@ class _ScanPageState extends ConsumerState<ScanPage> {
         Card(
           child: ExpansionTile(
             initiallyExpanded: false,
+            leading: _SectionIcon(
+              icon: Icons.add_road_rounded,
+              color: const Color(0xFF14A38B),
+            ),
             title: Text(
               l10n.t('dashboard.addScanView'),
-              style: const TextStyle(fontWeight: FontWeight.w600),
+              style: const TextStyle(fontWeight: FontWeight.w700),
             ),
             children: [
               Padding(
@@ -89,35 +99,101 @@ class _ScanPageState extends ConsumerState<ScanPage> {
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _viewSearchController,
-          decoration: InputDecoration(
-            labelText: l10n.t('dashboard.searchIpBlock'),
-            hintText: l10n.t('dashboard.searchIpBlockHint'),
-            border: const OutlineInputBorder(),
-            prefixIcon: const Icon(Icons.search),
-            suffixIcon: _viewSearchQuery.isEmpty
-                ? null
-                : IconButton(
-                    onPressed: () {
-                      _viewSearchController.clear();
-                      setState(() {
-                        _viewSearchQuery = '';
-                      });
-                    },
-                    tooltip: l10n.t('common.clearInput'),
-                    icon: const Icon(Icons.clear),
+        if (scanViewState.cloudLoading && scanViewState.views.isEmpty) ...[
+          const SizedBox(height: 12),
+          Card(
+            color: const Color(0xFFF6F8FF),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      l10n.t('dashboard.loadingCloudViews'),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF2F67D8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-          onChanged: (value) {
-            setState(() {
-              _viewSearchQuery = value.trim();
-            });
-          },
-        ),
+        ],
         const SizedBox(height: 12),
-        _buildSelectionMode(scanViewState.mode, l10n),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: TextField(
+              controller: _viewSearchController,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                labelText: l10n.t('dashboard.searchIpBlock'),
+                hintText: l10n.t('dashboard.searchIpBlockHint'),
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _viewSearchQuery.isEmpty
+                    ? null
+                    : IconButton(
+                        onPressed: () {
+                          _viewSearchController.clear();
+                          setState(() {
+                            _viewSearchQuery = '';
+                          });
+                        },
+                        tooltip: l10n.t('common.clearInput'),
+                        icon: const Icon(Icons.clear),
+                      ),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _viewSearchQuery = value.trim();
+                });
+              },
+            ),
+          ),
+        ),
+        if (scanViewState.syncingRemote && scanViewState.views.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Card(
+            color: const Color(0xFFF7FBF9),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    l10n.t('dashboard.syncingCloudViews'),
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0F8B6D),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: _buildSelectionMode(scanViewState.mode, l10n),
+          ),
+        ),
         const SizedBox(height: 8),
         ...filteredViews.map(
           (view) => ScanViewCard(
@@ -148,30 +224,42 @@ class _ScanPageState extends ConsumerState<ScanPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              l10n.t('dashboard.scanType'),
-              style: const TextStyle(fontWeight: FontWeight.w600),
+            Row(
+              children: [
+                const _SectionIcon(
+                  icon: Icons.radar_rounded,
+                  color: Color(0xFF2EAF62),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  l10n.t('dashboard.scanType'),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            Row(
               children: [
-                ChoiceChip(
-                  label: Text(l10n.t('dashboard.scanType.full')),
-                  selected: mode == ScanTargetMode.full,
-                  showCheckmark: false,
-                  onSelected: (_) =>
-                      ref.read(scanTargetModeProvider.notifier).state =
-                          ScanTargetMode.full,
+                Expanded(
+                  child: _SelectionModeButton(
+                    label: l10n.t('dashboard.scanType.full'),
+                    selected: mode == ScanTargetMode.full,
+                    color: const Color(0xFF2F67D8),
+                    onPressed: () =>
+                        ref.read(scanTargetModeProvider.notifier).state =
+                            ScanTargetMode.full,
+                  ),
                 ),
-                ChoiceChip(
-                  label: Text(l10n.t('dashboard.scanType.known')),
-                  selected: mode == ScanTargetMode.known,
-                  showCheckmark: false,
-                  onSelected: (_) =>
-                      ref.read(scanTargetModeProvider.notifier).state =
-                          ScanTargetMode.known,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _SelectionModeButton(
+                    label: l10n.t('dashboard.scanType.known'),
+                    selected: mode == ScanTargetMode.known,
+                    color: const Color(0xFF14A38B),
+                    onPressed: () =>
+                        ref.read(scanTargetModeProvider.notifier).state =
+                            ScanTargetMode.known,
+                  ),
                 ),
               ],
             ),
@@ -188,7 +276,10 @@ class _ScanPageState extends ConsumerState<ScanPage> {
     );
   }
 
-  Widget _buildCredentialFields(SettingsState settingsState, AppLocalizer l10n) {
+  Widget _buildCredentialFields(
+    SettingsState settingsState,
+    AppLocalizer l10n,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -200,7 +291,9 @@ class _ScanPageState extends ConsumerState<ScanPage> {
           ),
           onChanged: (value) async {
             final next = settingsState.settings.copyWith(minerUsername: value);
-            await ref.read(settingsControllerProvider.notifier).updateSettings(next);
+            await ref
+                .read(settingsControllerProvider.notifier)
+                .updateSettings(next);
           },
         ),
         const SizedBox(height: 8),
@@ -212,7 +305,9 @@ class _ScanPageState extends ConsumerState<ScanPage> {
             border: const OutlineInputBorder(),
           ),
           onChanged: (value) {
-            ref.read(settingsControllerProvider.notifier).saveMinerAuthPassword(value);
+            ref
+                .read(settingsControllerProvider.notifier)
+                .saveMinerAuthPassword(value);
           },
         ),
       ],
@@ -225,6 +320,7 @@ class _ScanPageState extends ConsumerState<ScanPage> {
       children: [
         TextField(
           controller: _cidrController,
+          keyboardType: TextInputType.phone,
           decoration: InputDecoration(
             labelText: _batchAddEnabled
                 ? l10n.t('dashboard.baseIpBlock')
@@ -282,6 +378,7 @@ class _ScanPageState extends ConsumerState<ScanPage> {
             Expanded(
               child: TextField(
                 controller: _startIpController,
+                keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: l10n.t('dashboard.startIp'),
                   hintText: l10n.t('dashboard.startIpHint'),
@@ -293,6 +390,7 @@ class _ScanPageState extends ConsumerState<ScanPage> {
             Expanded(
               child: TextField(
                 controller: _endIpController,
+                keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: l10n.t('dashboard.endIp'),
                   hintText: l10n.t('dashboard.endIpHint'),
@@ -335,15 +433,19 @@ class _ScanPageState extends ConsumerState<ScanPage> {
               }
               if (normalizedStart != null &&
                   normalizedEnd != null &&
-                  IpUtils.ipToInt(normalizedStart) > IpUtils.ipToInt(normalizedEnd)) {
+                  IpUtils.ipToInt(normalizedStart) >
+                      IpUtils.ipToInt(normalizedEnd)) {
                 _showError(l10n.t('dashboard.error.startGreaterThanEnd'));
                 return;
               }
-              final resolvedName = normalizedCidr?.split('/').first ??
+              final resolvedName =
+                  normalizedCidr?.split('/').first ??
                   normalizedStart ??
                   normalizedEnd ??
                   l10n.t('dashboard.defaultViewName');
-              await ref.read(scanViewControllerProvider.notifier).addView(
+              await ref
+                  .read(scanViewControllerProvider.notifier)
+                  .addView(
                     name: resolvedName,
                     cidr: normalizedCidr ?? '',
                     startIp: normalizedStart ?? '',
@@ -423,42 +525,66 @@ class _ScanPageState extends ConsumerState<ScanPage> {
   }
 
   Widget _buildSelectionMode(SelectionMode mode, AppLocalizer l10n) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Text(l10n.t('dashboard.selectionMode')),
+        Row(
+          children: [
+            const _SectionIcon(
+              icon: Icons.checklist_rounded,
+              color: Color(0xFF6F748B),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              l10n.t('dashboard.selectionMode'),
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ],
         ),
-        ChoiceChip(
-          label: Text(l10n.t('dashboard.selectionMode.single')),
-          selected: mode == SelectionMode.single,
-          showCheckmark: false,
-          onSelected: (_) => ref
-              .read(scanViewControllerProvider.notifier)
-              .setMode(SelectionMode.single),
-        ),
-        ChoiceChip(
-          label: Text(l10n.t('dashboard.selectionMode.multi')),
-          selected: mode == SelectionMode.multi,
-          showCheckmark: false,
-          onSelected: (_) => ref
-              .read(scanViewControllerProvider.notifier)
-              .setMode(SelectionMode.multi),
-        ),
-        OutlinedButton(
-          onPressed: () =>
-              ref.read(scanViewControllerProvider.notifier).selectAll(),
-          child: Text(l10n.t('dashboard.selectionMode.selectAll')),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _SelectionModeButton(
+                label: l10n.t('dashboard.selectionMode.single'),
+                selected: mode == SelectionMode.single,
+                color: const Color(0xFF2F67D8),
+                onPressed: () => ref
+                    .read(scanViewControllerProvider.notifier)
+                    .setMode(SelectionMode.single),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _SelectionModeButton(
+                label: l10n.t('dashboard.selectionMode.multi'),
+                selected: mode == SelectionMode.multi,
+                color: const Color(0xFF14A38B),
+                onPressed: () => ref
+                    .read(scanViewControllerProvider.notifier)
+                    .setMode(SelectionMode.multi),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _SelectionModeButton(
+                label: l10n.t('dashboard.selectionMode.selectAll'),
+                selected: false,
+                color: const Color(0xFF6F748B),
+                onPressed: () =>
+                    ref.read(scanViewControllerProvider.notifier).selectAll(),
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _confirmDeleteView(ScanView view, AppLocalizer l10n) async {
@@ -489,5 +615,79 @@ class _ScanPageState extends ConsumerState<ScanPage> {
     if (confirmed == true && mounted) {
       await ref.read(scanViewControllerProvider.notifier).deleteView(view.id);
     }
+  }
+}
+
+class _SectionIcon extends StatelessWidget {
+  const _SectionIcon({required this.icon, required this.color});
+
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(icon, size: 18, color: color),
+    );
+  }
+}
+
+class _SelectionModeButton extends StatelessWidget {
+  const _SelectionModeButton({
+    required this.label,
+    required this.selected,
+    required this.color,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool selected;
+  final Color color;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final ButtonStyle style = selected
+        ? FilledButton.styleFrom(
+            minimumSize: const Size.fromHeight(40),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            backgroundColor: color,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          )
+        : OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(40),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            foregroundColor: color,
+            side: BorderSide(color: color.withValues(alpha: 0.5)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          );
+
+    final Widget child = FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+    );
+
+    return selected
+        ? FilledButton(onPressed: onPressed, style: style, child: child)
+        : OutlinedButton(onPressed: onPressed, style: style, child: child);
   }
 }

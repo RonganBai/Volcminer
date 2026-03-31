@@ -1,7 +1,7 @@
 import 'package:volcminer/domain/entities/credential.dart';
 import 'package:volcminer/domain/entities/led_toggle_result.dart';
+import 'package:volcminer/domain/entities/miner_pool_config_snapshot.dart';
 import 'package:volcminer/domain/entities/miner_runtime.dart';
-import 'package:volcminer/domain/entities/pool_slot_config.dart';
 
 abstract class MinerRepository {
   Future<MinerRuntime> getRuntime(
@@ -22,8 +22,7 @@ abstract class MinerRepository {
   Future<LedToggleResult> reboot(List<String> ips, MinerCredential credential);
   Future<LedToggleResult> applyPoolConfig(
     List<String> ips,
-    List<PoolSlotConfig> poolSlots,
-    Map<int, String> slotPasswords,
+    MinerPoolConfigSnapshot snapshot,
     MinerCredential credential,
   );
 }
