@@ -1,0 +1,17 @@
+{
+  "name": "volcminer-server-migration",
+  "version": "0.1.0",
+  "description": "Zero-dependency Ubuntu aggregator service for VolcMiner-style mining devices.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node src/server.js",
+    "start:once": "node src/server.js --refresh-once",
+    "generate:gray": "node tools/generateGrayConfig.mjs",
+    "discover:subnet": "node tools/discoverSubnet.mjs",
+    "set:enabled": "node tools/setEnabledMiners.mjs"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

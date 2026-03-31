@@ -1,0 +1,4 @@
+id,name,ip,username,password,site,tags,enabled,timeoutMs,authType,statusEndpoint,overviewEndpoint,monitorEndpoint
+miner-gray-001,Rack A-01,172.100.1.4,root,ltc@dog,gray,"gray|rack-a|batch-01",true,8000,digest,/cgi-bin/get_miner_statusV1.cgi,/cgi-bin/get_system_infoV1.cgi,/cgi-bin/monitor.cgi
+miner-gray-002,Rack A-02,172.100.1.5,root,replace-me,gray,"gray|rack-a|batch-01",false,8000,digest,/cgi-bin/get_miner_statusV1.cgi,/cgi-bin/get_system_infoV1.cgi,/cgi-bin/monitor.cgi
+miner-gray-003,Rack A-03,172.100.1.6,root,replace-me,gray,"gray|rack-a|batch-01",false,8000,digest,/cgi-bin/get_miner_statusV1.cgi,/cgi-bin/get_system_infoV1.cgi,/cgi-bin/monitor.cgi

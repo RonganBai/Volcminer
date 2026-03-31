@@ -1,0 +1,73 @@
+{
+  "status": {
+    "online": true,
+    "hashrateRt": 9875,
+    "hashrateAvg": 9730,
+    "accepted": 2450,
+    "rejected": 15,
+    "hardwareErrors": 2,
+    "uptimeSeconds": 86400,
+    "fans": [
+      {
+        "name": "fan1",
+        "rpm": 6120
+      },
+      {
+        "name": "fan2",
+        "rpm": 5980
+      }
+    ],
+    "boards": [
+      {
+        "board": 1,
+        "temperatureC": 66,
+        "hashrateRt": 3280,
+        "hashrateAvg": 3240
+      },
+      {
+        "board": 2,
+        "temperatureC": 68,
+        "hashrateRt": 3305,
+        "hashrateAvg": 3260
+      },
+      {
+        "board": 3,
+        "temperatureC": 67,
+        "hashrateRt": 3290,
+        "hashrateAvg": 3230
+      }
+    ],
+    "pools": [
+      {
+        "url": "stratum+tcp://pool-a.example.com",
+        "worker": "wallet.worker01",
+        "status": "Alive",
+        "priority": 0
+      }
+    ]
+  },
+  "overview": {
+    "minerType": "VolcMiner D1",
+    "hostname": "miner-demo-01",
+    "systemMode": "Normal",
+    "hardwareVersion": "1.0",
+    "kernelVersion": "6.1.0-demo",
+    "filesystemVersion": "2026.03.01",
+    "cgminerVersion": "5.0-demo",
+    "loadAverage": "0.82 0.75 0.63",
+    "memTotalKb": 524288,
+    "memUsedKb": 192512,
+    "memFreeKb": 175104,
+    "memCachedKb": 122880,
+    "memBuffersKb": 33792,
+    "network": {
+      "type": "DHCP",
+      "ip": "10.0.0.61",
+      "netmask": "255.255.255.0"
+    },
+    "machineTime": "2026-03-23T16:00:00.000Z"
+  },
+  "monitor": {
+    "text": "Hashrate stable. Temperature within target range."
+  }
+}

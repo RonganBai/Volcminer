@@ -1,0 +1,73 @@
+{
+  "status": {
+    "online": true,
+    "hashrateRt": 7450,
+    "hashrateAvg": 9200,
+    "accepted": 2370,
+    "rejected": 29,
+    "hardwareErrors": 17,
+    "uptimeSeconds": 80234,
+    "fans": [
+      {
+        "name": "fan1",
+        "rpm": 5800
+      },
+      {
+        "name": "fan2",
+        "rpm": 5605
+      }
+    ],
+    "boards": [
+      {
+        "board": 1,
+        "temperatureC": 74,
+        "hashrateRt": 2510,
+        "hashrateAvg": 3060
+      },
+      {
+        "board": 2,
+        "temperatureC": 83,
+        "hashrateRt": 2440,
+        "hashrateAvg": 3080
+      },
+      {
+        "board": 3,
+        "temperatureC": 80,
+        "hashrateRt": 2500,
+        "hashrateAvg": 3060
+      }
+    ],
+    "pools": [
+      {
+        "url": "stratum+tcp://pool-a.example.com",
+        "worker": "wallet.worker02",
+        "status": "Alive",
+        "priority": 0
+      }
+    ]
+  },
+  "overview": {
+    "minerType": "VolcMiner D1",
+    "hostname": "miner-demo-02",
+    "systemMode": "Low Power",
+    "hardwareVersion": "1.0",
+    "kernelVersion": "6.1.0-demo",
+    "filesystemVersion": "2026.03.01",
+    "cgminerVersion": "5.0-demo",
+    "loadAverage": "1.25 1.08 0.94",
+    "memTotalKb": 524288,
+    "memUsedKb": 238592,
+    "memFreeKb": 113664,
+    "memCachedKb": 139264,
+    "memBuffersKb": 32768,
+    "network": {
+      "type": "DHCP",
+      "ip": "10.0.0.62",
+      "netmask": "255.255.255.0"
+    },
+    "machineTime": "2026-03-23T16:00:00.000Z"
+  },
+  "monitor": {
+    "text": "Warning: hashrate below expected baseline. Check airflow and board 2."
+  }
+}

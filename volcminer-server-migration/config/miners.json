@@ -1,0 +1,84 @@
+{
+  "miners": [
+    {
+      "id": "miner-demo-01",
+      "name": "Demo Miner 01",
+      "source": "mock",
+      "profile": "volcminer-webui",
+      "site": "lab",
+      "tags": [
+        "demo",
+        "rack-a"
+      ],
+      "mockFile": "./data/mock/miner-demo-01.json",
+      "endpoints": {
+        "status": "/cgi-bin/get_miner_statusV1.cgi",
+        "overview": "/cgi-bin/get_system_infoV1.cgi",
+        "monitor": "/cgi-bin/monitor.cgi"
+      }
+    },
+    {
+      "id": "miner-demo-02",
+      "name": "Demo Miner 02",
+      "source": "mock",
+      "profile": "volcminer-webui",
+      "site": "lab",
+      "tags": [
+        "demo",
+        "rack-b"
+      ],
+      "mockFile": "./data/mock/miner-demo-02.json",
+      "endpoints": {
+        "status": "/cgi-bin/get_miner_statusV1.cgi",
+        "overview": "/cgi-bin/get_system_infoV1.cgi",
+        "monitor": "/cgi-bin/monitor.cgi"
+      }
+    },
+    {
+      "id": "miner-real-template-01",
+      "name": "Rack A / Miner 01",
+      "source": "volcminer-http",
+      "profile": "volcminer-webui",
+      "enabled": false,
+      "site": "production",
+      "tags": [
+        "template",
+        "volcminer"
+      ],
+      "baseUrl": "http://10.0.0.61",
+      "timeoutMs": 4000,
+      "auth": {
+        "type": "digest",
+        "username": "root",
+        "password": "replace-me"
+      },
+      "endpoints": {
+        "status": "/cgi-bin/get_miner_statusV1.cgi",
+        "overview": "/cgi-bin/get_system_infoV1.cgi",
+        "monitor": "/cgi-bin/monitor.cgi"
+      },
+      "headers": {},
+      "responseMapping": {
+        "overview": {
+          "minerType": "minertype",
+          "hostname": "hostname",
+          "systemMode": "system_mode",
+          "hardwareVersion": "bb_hwv",
+          "kernelVersion": "system_kernel_version",
+          "filesystemVersion": "system_filesystem_version",
+          "cgminerVersion": "cgminer_version",
+          "loadAverage": "loadaverage",
+          "machineTime": "machine_time",
+          "networkType": "nettype",
+          "ip": "ipaddress",
+          "netmask": "netmask",
+          "memTotalKb": "mem_total",
+          "memUsedKb": "mem_used",
+          "memFreeKb": "mem_free",
+          "memCachedKb": "mem_cached",
+          "memBuffersKb": "mem_buffers"
+        }
+      }
+    }
+  ]
+}

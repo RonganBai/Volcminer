@@ -1,0 +1,147 @@
+{
+  "generatedAt": "2026-03-23T20:37:11.168Z",
+  "minerCount": 3,
+  "miners": [
+    {
+      "id": "miner-gray-001",
+      "name": "Rack A-01",
+      "source": "volcminer-http",
+      "profile": "volcminer-webui",
+      "enabled": true,
+      "site": "gray",
+      "tags": [
+        "gray",
+        "rack-a",
+        "batch-01"
+      ],
+      "baseUrl": "http://172.100.1.4",
+      "timeoutMs": 8000,
+      "auth": {
+        "type": "digest",
+        "username": "root",
+        "password": "ltc@dog"
+      },
+      "endpoints": {
+        "status": "/cgi-bin/get_miner_statusV1.cgi",
+        "overview": "/cgi-bin/get_system_infoV1.cgi",
+        "monitor": "/cgi-bin/monitor.cgi"
+      },
+      "headers": {},
+      "responseMapping": {
+        "overview": {
+          "minerType": "minertype",
+          "hostname": "hostname",
+          "systemMode": "system_mode",
+          "hardwareVersion": "bb_hwv",
+          "kernelVersion": "system_kernel_version",
+          "filesystemVersion": "system_filesystem_version",
+          "cgminerVersion": "cgminer_version",
+          "loadAverage": "loadaverage",
+          "machineTime": "machine_time",
+          "networkType": "nettype",
+          "ip": "ipaddress",
+          "netmask": "netmask",
+          "memTotalKb": "mem_total",
+          "memUsedKb": "mem_used",
+          "memFreeKb": "mem_free",
+          "memCachedKb": "mem_cached",
+          "memBuffersKb": "mem_buffers"
+        }
+      }
+    },
+    {
+      "id": "miner-gray-002",
+      "name": "Rack A-02",
+      "source": "volcminer-http",
+      "profile": "volcminer-webui",
+      "enabled": false,
+      "site": "gray",
+      "tags": [
+        "gray",
+        "rack-a",
+        "batch-01"
+      ],
+      "baseUrl": "http://172.100.1.5",
+      "timeoutMs": 8000,
+      "auth": {
+        "type": "digest",
+        "username": "root",
+        "password": "replace-me"
+      },
+      "endpoints": {
+        "status": "/cgi-bin/get_miner_statusV1.cgi",
+        "overview": "/cgi-bin/get_system_infoV1.cgi",
+        "monitor": "/cgi-bin/monitor.cgi"
+      },
+      "headers": {},
+      "responseMapping": {
+        "overview": {
+          "minerType": "minertype",
+          "hostname": "hostname",
+          "systemMode": "system_mode",
+          "hardwareVersion": "bb_hwv",
+          "kernelVersion": "system_kernel_version",
+          "filesystemVersion": "system_filesystem_version",
+          "cgminerVersion": "cgminer_version",
+          "loadAverage": "loadaverage",
+          "machineTime": "machine_time",
+          "networkType": "nettype",
+          "ip": "ipaddress",
+          "netmask": "netmask",
+          "memTotalKb": "mem_total",
+          "memUsedKb": "mem_used",
+          "memFreeKb": "mem_free",
+          "memCachedKb": "mem_cached",
+          "memBuffersKb": "mem_buffers"
+        }
+      }
+    },
+    {
+      "id": "miner-gray-003",
+      "name": "Rack A-03",
+      "source": "volcminer-http",
+      "profile": "volcminer-webui",
+      "enabled": false,
+      "site": "gray",
+      "tags": [
+        "gray",
+        "rack-a",
+        "batch-01"
+      ],
+      "baseUrl": "http://172.100.1.6",
+      "timeoutMs": 8000,
+      "auth": {
+        "type": "digest",
+        "username": "root",
+        "password": "replace-me"
+      },
+      "endpoints": {
+        "status": "/cgi-bin/get_miner_statusV1.cgi",
+        "overview": "/cgi-bin/get_system_infoV1.cgi",
+        "monitor": "/cgi-bin/monitor.cgi"
+      },
+      "headers": {},
+      "responseMapping": {
+        "overview": {
+          "minerType": "minertype",
+          "hostname": "hostname",
+          "systemMode": "system_mode",
+          "hardwareVersion": "bb_hwv",
+          "kernelVersion": "system_kernel_version",
+          "filesystemVersion": "system_filesystem_version",
+          "cgminerVersion": "cgminer_version",
+          "loadAverage": "loadaverage",
+          "machineTime": "machine_time",
+          "networkType": "nettype",
+          "ip": "ipaddress",
+          "netmask": "netmask",
+          "memTotalKb": "mem_total",
+          "memUsedKb": "mem_used",
+          "memFreeKb": "mem_free",
+          "memCachedKb": "mem_cached",
+          "memBuffersKb": "mem_buffers"
+        }
+      }
+    }
+  ]
+}
