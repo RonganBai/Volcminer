@@ -43,7 +43,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
           onTick: () async {
             await ref
                 .read(scanControllerProvider.notifier)
-                .refreshServerSnapshot();
+                .refreshServerSummary();
           },
         );
     _serviceSubscription = BackgroundScanService.on('scanUpdated').listen((_) {
@@ -210,7 +210,7 @@ class _HomeShellState extends ConsumerState<HomeShell>
     }
     setState(() => _refreshingServerData = true);
     try {
-      await ref.read(scanControllerProvider.notifier).refreshServerSnapshot();
+      await ref.read(scanControllerProvider.notifier).refreshServerSummary();
     } finally {
       if (mounted) {
         setState(() => _refreshingServerData = false);

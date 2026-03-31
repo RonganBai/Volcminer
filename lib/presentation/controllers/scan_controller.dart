@@ -353,7 +353,7 @@ class ScanController extends StateNotifier<ScanState> {
       }
       final String serverUrl = await _getServerUrl();
       if (serverUrl.isNotEmpty) {
-        unawaited(_refreshServerState(serverUrl));
+        unawaited(_refreshServerSummary(serverUrl));
         return;
       }
       if (persisted == null) {
@@ -1794,8 +1794,9 @@ class ScanController extends StateNotifier<ScanState> {
     required String serverUrl,
     required Map<String, String> knownMinerIdsByIp,
   }) {
-    final queue = (_knownMinerDeleteQueue ?? Future<void>.value())
-        .catchError((_) {});
+    final queue = (_knownMinerDeleteQueue ?? Future<void>.value()).catchError(
+      (_) {},
+    );
     _knownMinerDeleteQueue = queue.then((_) async {
       for (final knownMinerId in knownMinerIdsByIp.values) {
         try {
