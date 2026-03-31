@@ -302,6 +302,7 @@ class ScanState {
 
 class ScanController extends StateNotifier<ScanState> {
   static const double _maxReasonableTotalHashrateGh = 1000000;
+  static const Duration _dashboardRefreshOffset = Duration(minutes: 15);
   static const Duration _uiProgressThrottle = Duration(milliseconds: 500);
 
   ScanController(
@@ -608,14 +609,22 @@ class ScanController extends StateNotifier<ScanState> {
         final summary = await _aggregatorRemoteDataSource.loadDashboardSummary(
           serverUrl,
         );
+        final DateTime? latestActionAt =
+            summary.latestScheduledTask?.lastScanStartedAt;
+        final DateTime? latestSnapshotAt =
+            summary.latestScheduledTask?.lastScanFinishedAt;
         _setServerSyncProgress(
           label: LegacyZhTexts.serverLoadDashboardSummary,
           current: 1,
           total: 2,
         );
         state = state.copyWith(
-          generatedAt: summary.generatedAt ?? state.generatedAt,
-          nextScheduledAt: summary.nextScheduledAt ?? state.nextScheduledAt,
+          generatedAt:
+              latestSnapshotAt ?? summary.generatedAt ?? state.generatedAt,
+          nextScheduledAt:
+              latestActionAt?.add(_dashboardRefreshOffset) ??
+              summary.nextScheduledAt ??
+              state.nextScheduledAt,
           nextGlobalScanAt: summary.nextGlobalScanAt ?? state.nextGlobalScanAt,
           serverMinerCount: summary.minerCount,
           serverOnlineCount: summary.onlineCount,
